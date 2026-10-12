@@ -1,0 +1,54 @@
+# Environment variables & secrets
+.env
+.env.local
+.env.*.local
+*.pem
+*.key
+*.keystore
+*.jks
+credentials.json
+service-account*.json
+
+# Node & NestJS
+node_modules/
+dist/
+*.tsbuildinfo
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+coverage/
+
+# Flutter / Dart
+.dart_tool/
+.packages
+.pub/
+.pub-cache/
+build/
+mobile/.dart_tool/
+mobile/.packages
+mobile/.pub/
+mobile/.pub-cache/
+mobile/build/
+
+# Android
+mobile/android/.gradle/
+mobile/android/local.properties
+mobile/android/app/release/
+*.keystore
+*.jks
+
+# iOS
+mobile/ios/.symlinks/
+mobile/ios/Pods/
+mobile/ios/Podfile.lock
+mobile/ios/Flutter/Generated.xcconfig
+mobile/ios/Flutter/flutter_export_environment.sh
+
+# IDE & OS
+.idea/
+.vscode/
+*.swp
+*.swo
+.DS_Store
+Thumbs.db
