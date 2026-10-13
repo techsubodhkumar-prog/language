@@ -36,6 +36,12 @@ The API verifies Supabase access tokens with Supabase Auth; an optional legacy H
 `SUPABASE_JWT_SECRET` can be configured for local cryptographic verification. The Flutter
 app only receives the Supabase publishable/anon key and never a service-role key.
 
+Milestone 2 uses the existing `profiles` and `interests` tables and adds `activities`
+with migration `002_create_activities.sql`. PostgreSQL must have PostGIS available
+because the migration enables it and stores an optional public meeting point as
+`GEOGRAPHY(Point, 4326)`. Configure the database URL for a PostgreSQL instance where
+the role can create PostGIS extensions, then apply migrations and seed interests:
+
 Apply the checked-in PostgreSQL migration and seed the curated interest list with:
 
 ```bash
@@ -48,6 +54,28 @@ The mobile app reads configuration from Dart defines, for example:
 ```bash
 flutter run --dart-define=SUPABASE_URL=https://your-project.supabase.co --dart-define=SUPABASE_ANON_KEY=your-publishable-key --dart-define=API_BASE_URL=http://10.0.2.2:3000/api/v1
 ```
+
+## Activities API
+
+All activity endpoints require `Authorization: Bearer <Supabase access token>`.
+The host profile is resolved from the verified token; client-provided host IDs are
+not accepted. `maxParticipants` is the total activity capacity and includes the host.
+An activity capacity of 6 therefore leaves at most 5 future guest places.
+
+- `POST /api/v1/activities` creates a public or invite-only scheduled activity.
+- `GET /api/v1/activities` lists public scheduled activities, ordered by start time
+  and activity ID. Supports `categoryId`, `from`, `to`, `location`, and pagination
+  (`limit` up to 50, `offset` up to 10000). Optional spatial filtering accepts
+  `latitude`, `longitude`, and `radiusKm` together.
+- `GET /api/v1/activities/:id` returns details. Invite-only activities are hidden
+  from non-host users until a later invitation workflow exists.
+- `PATCH /api/v1/activities/:id` updates an activity owned by the caller.
+- `PATCH /api/v1/activities/:id/cancel` marks an owned activity as cancelled.
+
+Activity endpoints require a completed user profile. The client sends activity
+date/time values as ISO 8601 timestamps. Location coordinates are optional and are
+never returned in public activity responses; venue/address text remains visible as
+the selected meeting point.
 
 ## Compile and run the project
 

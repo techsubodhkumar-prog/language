@@ -1,8 +1,11 @@
 import { Module } from '@nestjs/common';
+import { AuthModule } from '../auth/auth.module.js';
+import { ActivitiesController } from './activities.controller.js';
+import { ActivitiesService } from './activities.service.js';
 
-/**
- * Activities module placeholder for Milestone 0 foundation.
- * Planned for Milestone 2: Activity creation, discovery feed, search, PostGIS location filtering.
- */
-@Module({})
+@Module({
+  imports: [AuthModule],
+  controllers: [ActivitiesController],
+  providers: [ActivitiesService],
+})
 export class ActivitiesModule {}

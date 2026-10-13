@@ -1,53 +1,10 @@
-import 'dart:convert';
-
 import 'package:flutter/material.dart';
-import 'package:http/http.dart' as http;
 import 'package:supabase_flutter/supabase_flutter.dart';
 
-class ApiException implements Exception {
-  const ApiException(this.statusCode, this.message);
-  final int statusCode;
-  final String message;
-  @override
-  String toString() => message;
-}
+import '../../core/network/api_client.dart';
+import '../activities/activity_screens.dart';
 
-class ApiClient {
-  ApiClient(this.baseUrl, {http.Client? client})
-    : _client = client ?? http.Client();
-  final String baseUrl;
-  final http.Client _client;
-
-  Future<dynamic> request(String method, String path, {Object? body}) async {
-    final token = Supabase.instance.client.auth.currentSession?.accessToken;
-    final response = await _client.send(
-      http.Request(method, Uri.parse('$baseUrl$path'))
-        ..headers.addAll({
-          'Accept': 'application/json',
-          'Content-Type': 'application/json',
-          if (token != null) 'Authorization': 'Bearer $token',
-        })
-        ..body = body == null ? '' : jsonEncode(body),
-    );
-    final result = await http.Response.fromStream(response);
-    dynamic data;
-    try {
-      data = result.body.isEmpty ? null : jsonDecode(result.body);
-    } catch (_) {
-      data = null;
-    }
-    if (result.statusCode < 200 || result.statusCode >= 300) {
-      final message = data is Map && data['message'] != null
-          ? data['message']
-          : 'Request failed (${result.statusCode})';
-      throw ApiException(
-        result.statusCode,
-        message is List ? message.join(', ') : message.toString(),
-      );
-    }
-    return data;
-  }
-}
+export '../../core/network/api_client.dart' show ApiClient, ApiException;
 
 class AuthFlow extends StatefulWidget {
   const AuthFlow({super.key, required this.apiBaseUrl});
@@ -547,10 +504,34 @@ class _HomeScreenState extends State<HomeScreen> {
                   ),
                   const SizedBox(height: 8),
                   const Text(
-                    'Your profile and interests are ready. Activity discovery arrives in the next milestone.',
+                    'Find an activity nearby or make a plan with others.',
                     textAlign: TextAlign.center,
                   ),
                   const SizedBox(height: 20),
+                  FilledButton.icon(
+                    onPressed: () => Navigator.of(context).push(
+                      MaterialPageRoute(
+                        builder: (_) =>
+                            ActivityDiscoveryScreen(api: widget.api),
+                      ),
+                    ),
+                    icon: const Icon(Icons.explore_outlined),
+                    label: const Text('Discover activities'),
+                  ),
+                  const SizedBox(height: 8),
+                  OutlinedButton.icon(
+                    onPressed: () => Navigator.of(context).push(
+                      MaterialPageRoute(
+                        builder: (_) => ActivityDiscoveryScreen(
+                          api: widget.api,
+                          openCreateOnStart: true,
+                        ),
+                      ),
+                    ),
+                    icon: const Icon(Icons.add),
+                    label: const Text('Create an activity'),
+                  ),
+                  const SizedBox(height: 8),
                   TextButton(
                     onPressed: () async {
                       await Supabase.instance.client.auth.signOut();
