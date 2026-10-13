@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../core/network/api_client.dart';
+import '../chat/chat_screen.dart';
 
 class ActivityDiscoveryScreen extends StatefulWidget {
   const ActivityDiscoveryScreen({
@@ -638,7 +639,24 @@ class _ActivityDetailsScreenState extends State<ActivityDetailsScreen> {
             ),
         ],
         if (isHost || currentStatus == 'approved') ...[
-          const SizedBox(height: 12),
+          const SizedBox(height: 16),
+          FilledButton.icon(
+            icon: const Icon(Icons.chat_bubble_outline),
+            label: const Text('Group chat'),
+            onPressed: () {
+              Navigator.of(context).push(
+                MaterialPageRoute(
+                  builder: (_) => ActivityChatScreen(
+                    api: widget.api,
+                    activityId: widget.activityId,
+                    activityTitle:
+                        activity?['title'] as String? ?? 'Activity Chat',
+                  ),
+                ),
+              );
+            },
+          ),
+          const SizedBox(height: 16),
           Text(
             'Participants (${participants.length})',
             style: Theme.of(context).textTheme.titleLarge,
@@ -735,6 +753,23 @@ class _ActivityDetailsScreenState extends State<ActivityDetailsScreen> {
     appBar: AppBar(
       title: const Text('Activity details'),
       actions: [
+        if (activity?['isHost'] == true || membership['status'] == 'approved')
+          IconButton(
+            icon: const Icon(Icons.chat_outlined),
+            tooltip: 'Group chat',
+            onPressed: () {
+              Navigator.of(context).push(
+                MaterialPageRoute(
+                  builder: (_) => ActivityChatScreen(
+                    api: widget.api,
+                    activityId: widget.activityId,
+                    activityTitle:
+                        activity?['title'] as String? ?? 'Activity Chat',
+                  ),
+                ),
+              );
+            },
+          ),
         if (activity?['isHost'] == true && activity?['status'] == 'scheduled')
           PopupMenuButton<String>(
             onSelected: (value) => value == 'edit' ? _edit() : _cancel(),

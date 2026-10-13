@@ -10,6 +10,9 @@ import { ActivitiesController } from '../src/modules/activities/activities.contr
 import { ActivitiesService } from '../src/modules/activities/activities.service.js';
 import { MembershipsController } from '../src/modules/memberships/memberships.controller.js';
 import { MembershipsService } from '../src/modules/memberships/memberships.service.js';
+import { ChatController } from '../src/modules/chat/chat.controller.js';
+import { ChatService } from '../src/modules/chat/chat.service.js';
+import { ChatGateway } from '../src/modules/chat/chat.gateway.js';
 
 describe('Activity Discovery API (e2e)', () => {
   let app: INestApplication<App>;
@@ -62,6 +65,17 @@ describe('Activity Discovery API (e2e)', () => {
       .get(
         '/api/v1/activities/00000000-0000-4000-8000-000000000001/participants',
       )
+      .expect(401);
+    await request(app.getHttpServer())
+      .get(
+        '/api/v1/activities/00000000-0000-4000-8000-000000000001/messages',
+      )
+      .expect(401);
+    await request(app.getHttpServer())
+      .post(
+        '/api/v1/activities/00000000-0000-4000-8000-000000000001/messages',
+      )
+      .send({ content: 'Test message' })
       .expect(401);
   });
 
@@ -155,6 +169,90 @@ describe('Activity Discovery API (e2e)', () => {
           .expect(400);
       }
       expect(create).toHaveBeenCalledTimes(1);
+    } finally {
+      await testApp.close();
+    }
+  });
+
+  it('derives chat sender exclusively from verified token and broadcasts via gateway', async () => {
+    const verifiedUser: AuthenticatedUser = { userId: 'chat-verified-user' };
+    const savedMessage = {
+      messageId: 'msg-1',
+      activityId: '00000000-0000-4000-8000-000000000001',
+      senderId: 'prof-1',
+      senderSupabaseUserId: 'chat-verified-user',
+      senderName: 'Chat User',
+      senderAvatarUrl: null,
+      content: 'Hello team!',
+      createdAt: new Date().toISOString(),
+    };
+
+    const saveMessage = vi.fn().mockResolvedValue(savedMessage);
+    const getMessages = vi.fn().mockResolvedValue({
+      items: [savedMessage],
+      pagination: { limit: 50, offset: 0, total: 1, hasMore: false },
+    });
+    const broadcastMessage = vi.fn();
+
+    const moduleFixture = await Test.createTestingModule({
+      controllers: [ChatController],
+      providers: [
+        {
+          provide: ChatService,
+          useValue: { saveMessage, getMessages },
+        },
+        {
+          provide: ChatGateway,
+          useValue: { broadcastMessage },
+        },
+      ],
+    })
+      .overrideGuard(AuthGuard)
+      .useValue({
+        canActivate: (context: import('@nestjs/common').ExecutionContext) => {
+          context
+            .switchToHttp()
+            .getRequest<{ user?: AuthenticatedUser }>().user = verifiedUser;
+          return true;
+        },
+      })
+      .compile();
+
+    const testApp = moduleFixture.createNestApplication();
+    testApp.setGlobalPrefix('api/v1');
+    await testApp.init();
+
+    try {
+      // POST message derives sender exclusively from verified token, ignoring any payload attempt to spoof sender
+      await request(testApp.getHttpServer())
+        .post('/api/v1/activities/00000000-0000-4000-8000-000000000001/messages')
+        .send({
+          content: 'Hello team!',
+          senderId: 'spoofed-attacker-id',
+          senderName: 'Fake Name',
+        })
+        .expect(201);
+
+      expect(saveMessage).toHaveBeenCalledWith(
+        '00000000-0000-4000-8000-000000000001',
+        verifiedUser,
+        'Hello team!',
+      );
+      expect(broadcastMessage).toHaveBeenCalledWith(
+        '00000000-0000-4000-8000-000000000001',
+        savedMessage,
+      );
+
+      // GET messages retrieves history for verified member
+      await request(testApp.getHttpServer())
+        .get('/api/v1/activities/00000000-0000-4000-8000-000000000001/messages?limit=20&offset=0')
+        .expect(200);
+
+      expect(getMessages).toHaveBeenCalledWith(
+        '00000000-0000-4000-8000-000000000001',
+        verifiedUser,
+        expect.objectContaining({ limit: 20, offset: 0 }),
+      );
     } finally {
       await testApp.close();
     }

@@ -6,8 +6,18 @@ import 'core/constants/app_constants.dart';
 import 'core/theme/app_theme.dart';
 import 'features/auth/auth_flow.dart';
 
-const _supabaseUrl = String.fromEnvironment('SUPABASE_URL');
-const _supabaseAnonKey = String.fromEnvironment('SUPABASE_ANON_KEY');
+const _defaultSupabaseUrl = 'https://viiwqzyrjhetpsypgpdh.supabase.co';
+const _defaultSupabaseAnonKey =
+    'sb_publishable_pWGsGud7sFXaNSTLtlpA7g_SqquD0j1';
+
+const _supabaseUrl = String.fromEnvironment(
+  'SUPABASE_URL',
+  defaultValue: _defaultSupabaseUrl,
+);
+const _supabaseAnonKey = String.fromEnvironment(
+  'SUPABASE_ANON_KEY',
+  defaultValue: _defaultSupabaseAnonKey,
+);
 const _apiBaseUrl = String.fromEnvironment(
   'API_BASE_URL',
   defaultValue: 'http://localhost:3000/api/v1',

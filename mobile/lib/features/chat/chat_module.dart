@@ -1,5 +1,7 @@
-/// Chat feature module placeholder for Milestone 0 foundation.
-/// Will implement real-time activity-scoped messaging and Socket.IO integration in Milestone 4.
+export 'chat_screen.dart';
+
+/// Chat feature module for Milestone 4.
+/// Activity-scoped WebSocket/Socket.IO messaging with membership-gated authorization.
 class ChatModule {
   static const String moduleName = 'chat';
 }
