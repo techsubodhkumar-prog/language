@@ -8,6 +8,8 @@ import { AuthGuard } from '../src/modules/auth/auth.guard.js';
 import type { AuthenticatedUser } from '../src/modules/auth/auth.types.js';
 import { ActivitiesController } from '../src/modules/activities/activities.controller.js';
 import { ActivitiesService } from '../src/modules/activities/activities.service.js';
+import { MembershipsController } from '../src/modules/memberships/memberships.controller.js';
+import { MembershipsService } from '../src/modules/memberships/memberships.service.js';
 
 describe('Activity Discovery API (e2e)', () => {
   let app: INestApplication<App>;
@@ -53,6 +55,52 @@ describe('Activity Discovery API (e2e)', () => {
       .post('/api/v1/activities')
       .send({})
       .expect(401);
+    await request(app.getHttpServer())
+      .post('/api/v1/activities/00000000-0000-4000-8000-000000000001/join')
+      .expect(401);
+    await request(app.getHttpServer())
+      .get(
+        '/api/v1/activities/00000000-0000-4000-8000-000000000001/participants',
+      )
+      .expect(401);
+  });
+
+  it('derives the membership requester exclusively from the verified token', async () => {
+    const verifiedUser: AuthenticatedUser = {
+      userId: 'verified-membership-subject',
+    };
+    const join = vi
+      .fn()
+      .mockResolvedValue({ membershipId: 'membership-1', status: 'requested' });
+    const moduleFixture = await Test.createTestingModule({
+      controllers: [MembershipsController],
+      providers: [{ provide: MembershipsService, useValue: { join } }],
+    })
+      .overrideGuard(AuthGuard)
+      .useValue({
+        canActivate: (context: import('@nestjs/common').ExecutionContext) => {
+          context
+            .switchToHttp()
+            .getRequest<{ user?: AuthenticatedUser }>().user = verifiedUser;
+          return true;
+        },
+      })
+      .compile();
+    const testApp = moduleFixture.createNestApplication();
+    testApp.setGlobalPrefix('api/v1');
+    await testApp.init();
+    try {
+      await request(testApp.getHttpServer())
+        .post('/api/v1/activities/00000000-0000-4000-8000-000000000001/join')
+        .send({ userId: 'attacker-controlled-user' })
+        .expect(201);
+      expect(join).toHaveBeenCalledWith(
+        '00000000-0000-4000-8000-000000000001',
+        verifiedUser,
+      );
+    } finally {
+      await testApp.close();
+    }
   });
 
   it('validates the activity API body and passes only the guarded identity to creation', async () => {

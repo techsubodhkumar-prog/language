@@ -1,8 +1,11 @@
 import { Module } from '@nestjs/common';
+import { AuthModule } from '../auth/auth.module.js';
+import { MembershipsController } from './memberships.controller.js';
+import { MembershipsService } from './memberships.service.js';
 
-/**
- * Memberships module placeholder for Milestone 0 foundation.
- * Planned for Milestone 3: Join requests, host approval/rejection, atomic capacity transactions.
- */
-@Module({})
+@Module({
+  imports: [AuthModule],
+  controllers: [MembershipsController],
+  providers: [MembershipsService],
+})
 export class MembershipsModule {}

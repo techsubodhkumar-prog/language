@@ -77,6 +77,47 @@ date/time values as ISO 8601 timestamps. Location coordinates are optional and a
 never returned in public activity responses; venue/address text remains visible as
 the selected meeting point.
 
+## Join requests and participants API
+
+Membership endpoints require the same verified Supabase bearer token. The user
+profile is resolved from the token subject on the server; request bodies never
+select the requester or the host.
+
+- `POST /api/v1/activities/:id/join` creates a `requested` membership for
+  approval activities or immediately creates an `approved` membership for
+  auto-join activities.
+- `GET /api/v1/memberships/me` lists the caller's requests and memberships.
+- `GET /api/v1/activities/:id/membership` returns the caller's state, or
+  `{ "status": "none" }` when they have no membership.
+- `DELETE /api/v1/activities/:id/membership` withdraws a pending request or
+  leaves an approved activity.
+- `GET /api/v1/activities/:id/requests` is host-only and returns pending
+  requesters' display names and avatar URLs.
+- `POST /api/v1/activities/:activityId/requests/:membershipId/approve` and
+  `/reject` are host-only and accept only a pending request.
+- `GET /api/v1/activities/:id/participants` returns the host and approved
+  participants only to the host or an approved participant.
+
+`activity_memberships` has one row per activity/user. Rejected, withdrawn, or
+left memberships can be resubmitted by transitioning that same row back to
+`requested`; a removed membership cannot be reactivated. Pending and approved
+memberships cannot be duplicated. The host is represented
+by `activities.host_user_id`, not a guest membership row, and capacity counts
+`1 + approved guest memberships`. New joins and host approvals lock the activity
+row in a transaction, recheck status, start time, and capacity, and then update
+the membership. Activity edits use the same lock and cannot lower the maximum
+below the confirmed participant total. Pending requests do not consume places.
+
+For local database verification, configure `DATABASE_URL` in `backend/.env` for
+a reachable PostgreSQL instance with PostGIS enabled and a role permitted to
+apply the checked-in migrations. Then run `npm run db:migrate` from `backend/`
+and verify `003_create_activity_memberships.sql` is listed in
+`schema_migrations`. Use a known development database only. The migration
+runner applies forward migrations and does not run down migrations. The down
+migration is available for a deliberate, separately reviewed rollback. The
+configured database could not be reached during Milestone 3 verification
+(`ENOTFOUND`), so the migration was not applied.
+
 ## Compile and run the project
 
 ```bash

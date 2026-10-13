@@ -154,6 +154,86 @@ void main() {
     expect(find.textContaining('Could not load activities'), findsOneWidget);
     expect(find.text('Retry'), findsOneWidget);
   });
+
+  testWidgets(
+    'Activity details submits a join request and shows pending state',
+    (tester) async {
+      final api = _FakeActivityApi();
+      await tester.pumpWidget(
+        MaterialApp(
+          home: ActivityDetailsScreen(api: api, activityId: 'activity-1'),
+        ),
+      );
+      await tester.pumpAndSettle();
+      expect(find.text('Request to join'), findsOneWidget);
+      await tester.tap(find.text('Request to join'));
+      await tester.pumpAndSettle();
+      expect(find.text('Pending approval'), findsOneWidget);
+      expect(api.calls, contains('POST /activities/activity-1/join'));
+      expect(find.text('Cancel request'), findsOneWidget);
+    },
+  );
+
+  testWidgets(
+    'Host can review a pending request and view approved participants',
+    (tester) async {
+      final api = _FakeActivityApi(isHost: true, hasRequest: true);
+      await tester.pumpWidget(
+        MaterialApp(
+          home: ActivityDetailsScreen(api: api, activityId: 'activity-1'),
+        ),
+      );
+      await tester.pumpAndSettle();
+      expect(find.text('Join requests (1)'), findsOneWidget);
+      expect(find.text('Riya'), findsOneWidget);
+      await tester.drag(find.byType(ListView), const Offset(0, -400));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byTooltip('Approve request'));
+      await tester.pumpAndSettle();
+      expect(
+        api.calls,
+        contains('POST /activities/activity-1/requests/request-1/approve'),
+      );
+      expect(find.text('Participants (2)'), findsOneWidget);
+    },
+  );
+
+  testWidgets('Host can reject a pending request', (tester) async {
+    final api = _FakeActivityApi(isHost: true, hasRequest: true);
+    await tester.pumpWidget(
+      MaterialApp(
+        home: ActivityDetailsScreen(api: api, activityId: 'activity-1'),
+      ),
+    );
+    await tester.pumpAndSettle();
+    await tester.drag(find.byType(ListView), const Offset(0, -400));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byTooltip('Reject request'));
+    await tester.pumpAndSettle();
+    expect(
+      api.calls,
+      contains('POST /activities/activity-1/requests/request-1/reject'),
+    );
+    expect(find.text('Join requests (0)'), findsOneWidget);
+  });
+
+  testWidgets(
+    'Full activity disables the join action and shows remaining capacity',
+    (tester) async {
+      final api = _FakeActivityApi(full: true);
+      await tester.pumpWidget(
+        MaterialApp(
+          home: ActivityDetailsScreen(api: api, activityId: 'activity-1'),
+        ),
+      );
+      await tester.pumpAndSettle();
+      final button = tester.widget<FilledButton>(
+        find.widgetWithText(FilledButton, 'Activity full'),
+      );
+      expect(button.onPressed, isNull);
+      expect(find.textContaining('0 places remaining'), findsWidgets);
+    },
+  );
 }
 
 class _FakeApiClient extends ApiClient {
@@ -180,10 +260,20 @@ final _categories = <Map<String, dynamic>>[
 ];
 
 class _FakeActivityApi extends ApiClient {
-  _FakeActivityApi({this.empty = false, this.failActivities = false})
-    : super('https://api.example.test');
+  _FakeActivityApi({
+    this.empty = false,
+    this.failActivities = false,
+    this.isHost = false,
+    this.hasRequest = false,
+    this.full = false,
+  }) : super('https://api.example.test');
   final bool empty;
   final bool failActivities;
+  final bool isHost;
+  final bool hasRequest;
+  final bool full;
+  String membershipStatus = 'none';
+  bool requestApproved = false;
   final List<String> calls = [];
 
   static final activity = <String, dynamic>{
@@ -201,6 +291,8 @@ class _FakeActivityApi extends ApiClient {
     'endsAt': null,
     'minParticipants': 1,
     'maxParticipants': 4,
+    'participantCount': 1,
+    'remainingPlaces': 3,
     'estimatedCost': null,
     'visibility': 'public',
     'joinPolicy': 'approval',
@@ -212,6 +304,50 @@ class _FakeActivityApi extends ApiClient {
   @override
   Future<dynamic> request(String method, String path, {Object? body}) async {
     calls.add('$method $path');
+    if (path.endsWith('/membership') && method == 'GET') {
+      return {'status': membershipStatus};
+    }
+    if (path.endsWith('/join') && method == 'POST') {
+      membershipStatus = 'requested';
+      return {'status': membershipStatus};
+    }
+    if (path.contains('/requests') &&
+        path.endsWith('/approve') &&
+        method == 'POST') {
+      requestApproved = true;
+      return {'status': 'approved'};
+    }
+    if (path.contains('/requests') &&
+        path.endsWith('/reject') &&
+        method == 'POST') {
+      requestApproved = true;
+      return {'status': 'rejected'};
+    }
+    if (path.endsWith('/requests') && method == 'GET') {
+      return {
+        'items': hasRequest && !requestApproved
+            ? [
+                {'membershipId': 'request-1', 'displayName': 'Riya'},
+              ]
+            : <dynamic>[],
+      };
+    }
+    if (path.endsWith('/participants') && method == 'GET') {
+      return {
+        'items': membershipStatus == 'approved' || requestApproved
+            ? [
+                {'displayName': 'Sam', 'role': 'host'},
+                {'displayName': 'Riya', 'role': 'participant'},
+              ]
+            : [
+                {'displayName': 'Sam', 'role': 'host'},
+              ],
+      };
+    }
+    if (path.endsWith('/membership') && method == 'DELETE') {
+      membershipStatus = 'withdrawn';
+      return {'status': membershipStatus};
+    }
     if (path == '/interests') return {'interests': _categories};
     if (path.startsWith('/activities?')) {
       if (failActivities) throw const ApiException(503, 'offline');
@@ -220,7 +356,22 @@ class _FakeActivityApi extends ApiClient {
         'pagination': {'limit': 20, 'offset': 0, 'total': empty ? 0 : 1},
       };
     }
-    if (path.startsWith('/activities/')) return activity;
+    if (path.startsWith('/activities/')) {
+      return {
+        ...activity,
+        'isHost': isHost,
+        'participantCount': full
+            ? 4
+            : membershipStatus == 'approved' || requestApproved
+            ? 2
+            : 1,
+        'remainingPlaces': full
+            ? 0
+            : membershipStatus == 'approved' || requestApproved
+            ? 2
+            : 3,
+      };
+    }
     return {'activity': activity};
   }
 }

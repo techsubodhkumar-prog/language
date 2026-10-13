@@ -29,6 +29,7 @@ interface ActivityRow {
   ends_at: Date | string | null;
   min_participants: number;
   max_participants: number;
+  participant_count: number;
   estimated_cost: string | number | null;
   visibility: string;
   join_policy: string;
@@ -42,6 +43,8 @@ const SELECT_ACTIVITY = `
          a.title, a.description, a.category_id, i.name AS category_name,
          a.location_name, a.location_description, a.starts_at, a.ends_at,
          a.min_participants, a.max_participants, a.estimated_cost,
+         1 + (SELECT COUNT(*) FROM activity_memberships m
+              WHERE m.activity_id = a.activity_id AND m.status = 'approved') AS participant_count,
          a.visibility, a.join_policy, a.status, a.created_at, a.updated_at
   FROM activities a
   JOIN profiles p ON p.user_id = a.host_user_id
@@ -65,6 +68,11 @@ function mapActivity(row: ActivityRow, isHost = false) {
     endsAt: asIso(row.ends_at),
     minParticipants: row.min_participants,
     maxParticipants: row.max_participants,
+    participantCount: Number(row.participant_count ?? 1),
+    remainingPlaces: Math.max(
+      0,
+      row.max_participants - Number(row.participant_count ?? 1),
+    ),
     estimatedCost:
       row.estimated_cost === null ? null : Number(row.estimated_cost),
     visibility: row.visibility,
@@ -329,11 +337,40 @@ export class ActivitiesService {
     if (sets.length === 0)
       throw new BadRequestException('Provide at least one field to update.');
     params.push(id);
-    await this.query(
-      `UPDATE activities SET ${sets.join(', ')}, updated_at = NOW()
-       WHERE activity_id = $${params.length}`,
-      params,
-    );
+    try {
+      await this.database.withTransaction(async (client) => {
+        const locked = await client.query<{
+          host_user_id: string;
+          status: string;
+        }>(
+          'SELECT host_user_id, status FROM activities WHERE activity_id = $1 FOR UPDATE',
+          [id],
+        );
+        if (!locked.rows[0]) throw new NotFoundException('Activity not found.');
+        if (locked.rows[0].host_user_id !== hostId)
+          throw new ForbiddenException(
+            'Only the activity host can make this change.',
+          );
+        if (locked.rows[0].status !== 'scheduled')
+          throw new ConflictException('Cancelled activities cannot be edited.');
+        const approved = await client.query<{ count: string }>(
+          "SELECT COUNT(*)::text AS count FROM activity_memberships WHERE activity_id = $1 AND status = 'approved'",
+          [id],
+        );
+        const confirmedTotal = 1 + Number(approved.rows[0]?.count ?? 0);
+        if (max < confirmedTotal)
+          throw new ConflictException(
+            'Maximum capacity cannot be lower than the current participant count.',
+          );
+        await client.query(
+          `UPDATE activities SET ${sets.join(', ')}, updated_at = NOW()
+           WHERE activity_id = $${params.length}`,
+          params,
+        );
+      });
+    } catch (error) {
+      this.rethrowDatabaseConstraint(error);
+    }
     return this.getById(id, user);
   }
 

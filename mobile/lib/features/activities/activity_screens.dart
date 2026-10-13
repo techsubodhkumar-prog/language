@@ -374,8 +374,14 @@ class ActivityDetailsScreen extends StatefulWidget {
 
 class _ActivityDetailsScreenState extends State<ActivityDetailsScreen> {
   Map<String, dynamic>? activity;
+  Map<String, dynamic> membership = {'status': 'none'};
+  List<Map<String, dynamic>> requests = [];
+  List<Map<String, dynamic>> participants = [];
   String? error;
   bool loading = true;
+  bool membershipLoading = false;
+  bool membershipBusy = false;
+  String? membershipError;
   Future<void> _load() async {
     setState(() {
       loading = true;
@@ -391,6 +397,7 @@ class _ActivityDetailsScreenState extends State<ActivityDetailsScreen> {
           activity = Map<String, dynamic>.from(result);
           loading = false;
         });
+        await _loadMembership();
       }
     } catch (_) {
       if (mounted) {
@@ -400,6 +407,255 @@ class _ActivityDetailsScreenState extends State<ActivityDetailsScreen> {
         });
       }
     }
+  }
+
+  Future<void> _loadMembership() async {
+    setState(() {
+      membershipLoading = true;
+      membershipError = null;
+    });
+    try {
+      final current = await widget.api.request(
+        'GET',
+        '/activities/${widget.activityId}/membership',
+      );
+      final nextMembership = Map<String, dynamic>.from(current as Map);
+      final isHost = activity?['isHost'] == true;
+      final status = nextMembership['status'];
+      final nextRequests = isHost
+          ? await widget.api.request(
+              'GET',
+              '/activities/${widget.activityId}/requests',
+            )
+          : {'items': <dynamic>[]};
+      final nextParticipants = (isHost || status == 'approved')
+          ? await widget.api.request(
+              'GET',
+              '/activities/${widget.activityId}/participants',
+            )
+          : {'items': <dynamic>[]};
+      if (!mounted) return;
+      setState(() {
+        membership = nextMembership;
+        requests = List<Map<String, dynamic>>.from(
+          nextRequests['items'] as List,
+        );
+        participants = List<Map<String, dynamic>>.from(
+          nextParticipants['items'] as List,
+        );
+        membershipLoading = false;
+      });
+    } catch (_) {
+      if (mounted) {
+        setState(() {
+          membershipLoading = false;
+          membershipError = 'Could not load participation details.';
+        });
+      }
+    }
+  }
+
+  Future<void> _membershipAction(
+    String method,
+    String path, {
+    Object? body,
+  }) async {
+    setState(() {
+      membershipBusy = true;
+      membershipError = null;
+    });
+    try {
+      await widget.api.request(method, path, body: body);
+      await _load();
+      if (mounted) setState(() => membershipBusy = false);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              method == 'DELETE'
+                  ? 'Request updated.'
+                  : 'Participation updated.',
+            ),
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          membershipBusy = false;
+          membershipError = e is ApiException && e.statusCode == 409
+              ? 'This activity is full or the request is no longer available.'
+              : 'Could not update participation. Please retry.';
+        });
+      }
+    }
+  }
+
+  Widget _membershipSection() {
+    final currentStatus = membership['status'] as String? ?? 'none';
+    final isHost = activity?['isHost'] == true;
+    final open = activity?['status'] == 'scheduled';
+    final capacity = activity?['maxParticipants'] as int? ?? 1;
+    final total = activity?['participantCount'] as int? ?? 1;
+    final remaining =
+        (activity?['remainingPlaces'] as int?) ?? (capacity - total);
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        const Divider(height: 32),
+        Text(
+          '$total of $capacity people · $remaining ${remaining == 1 ? 'place' : 'places'} remaining',
+          style: Theme.of(context).textTheme.titleMedium,
+        ),
+        const SizedBox(height: 12),
+        if (membershipLoading)
+          const Center(child: CircularProgressIndicator())
+        else if (membershipError != null) ...[
+          Text(
+            membershipError!,
+            style: TextStyle(color: Theme.of(context).colorScheme.error),
+          ),
+          TextButton(onPressed: _loadMembership, child: const Text('Retry')),
+        ] else if (!isHost && open && currentStatus == 'none')
+          FilledButton(
+            onPressed: membershipBusy || remaining <= 0
+                ? null
+                : () => _membershipAction(
+                    'POST',
+                    '/activities/${widget.activityId}/join',
+                  ),
+            child: Text(
+              remaining <= 0
+                  ? 'Activity full'
+                  : activity?['joinPolicy'] == 'auto_join'
+                  ? 'Join activity'
+                  : 'Request to join',
+            ),
+          )
+        else if (currentStatus == 'requested') ...[
+          const Chip(
+            avatar: Icon(Icons.hourglass_top),
+            label: Text('Pending approval'),
+          ),
+          OutlinedButton(
+            onPressed: membershipBusy
+                ? null
+                : () => _membershipAction(
+                    'DELETE',
+                    '/activities/${widget.activityId}/membership',
+                  ),
+            child: const Text('Cancel request'),
+          ),
+        ] else if (currentStatus == 'approved') ...[
+          const Chip(
+            avatar: Icon(Icons.check_circle_outline),
+            label: Text('Joined'),
+          ),
+          if (!isHost)
+            OutlinedButton(
+              onPressed: membershipBusy
+                  ? null
+                  : () => _membershipAction(
+                      'DELETE',
+                      '/activities/${widget.activityId}/membership',
+                    ),
+              child: const Text('Leave activity'),
+            ),
+        ] else if (currentStatus == 'rejected') ...[
+          const Chip(label: Text('Request declined')),
+          if (!isHost && open && remaining > 0)
+            OutlinedButton(
+              onPressed: membershipBusy
+                  ? null
+                  : () => _membershipAction(
+                      'POST',
+                      '/activities/${widget.activityId}/join',
+                    ),
+              child: const Text('Request again'),
+            ),
+        ] else if (currentStatus == 'withdrawn' || currentStatus == 'left') ...[
+          Chip(
+            label: Text(
+              currentStatus == 'left'
+                  ? 'You left this activity'
+                  : 'Request cancelled',
+            ),
+          ),
+          if (!isHost && open && remaining > 0)
+            OutlinedButton(
+              onPressed: membershipBusy
+                  ? null
+                  : () => _membershipAction(
+                      'POST',
+                      '/activities/${widget.activityId}/join',
+                    ),
+              child: const Text('Request again'),
+            ),
+        ] else if (currentStatus == 'none' && !isHost && remaining <= 0)
+          const Chip(label: Text('Activity full')),
+        if (membershipBusy) const LinearProgressIndicator(),
+        if (isHost) ...[
+          const SizedBox(height: 16),
+          Text(
+            'Join requests (${requests.length})',
+            style: Theme.of(context).textTheme.titleLarge,
+          ),
+          if (requests.isEmpty)
+            const Text('No pending requests.')
+          else
+            ...requests.map(
+              (request) => ListTile(
+                contentPadding: EdgeInsets.zero,
+                leading: const CircleAvatar(child: Icon(Icons.person_outline)),
+                title: Text(request['displayName'] as String? ?? 'Participant'),
+                subtitle: const Text('Pending approval'),
+                trailing: Wrap(
+                  spacing: 4,
+                  children: [
+                    IconButton(
+                      tooltip: 'Approve request',
+                      onPressed: membershipBusy
+                          ? null
+                          : () => _membershipAction(
+                              'POST',
+                              '/activities/${widget.activityId}/requests/${request['membershipId']}/approve',
+                            ),
+                      icon: const Icon(Icons.check),
+                    ),
+                    IconButton(
+                      tooltip: 'Reject request',
+                      onPressed: membershipBusy
+                          ? null
+                          : () => _membershipAction(
+                              'POST',
+                              '/activities/${widget.activityId}/requests/${request['membershipId']}/reject',
+                            ),
+                      icon: const Icon(Icons.close),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+        ],
+        if (isHost || currentStatus == 'approved') ...[
+          const SizedBox(height: 12),
+          Text(
+            'Participants (${participants.length})',
+            style: Theme.of(context).textTheme.titleLarge,
+          ),
+          ...participants.map(
+            (person) => ListTile(
+              contentPadding: EdgeInsets.zero,
+              leading: const CircleAvatar(child: Icon(Icons.person_outline)),
+              title: Text(person['displayName'] as String? ?? 'Participant'),
+              subtitle: Text(
+                person['role'] == 'host' ? 'Host' : 'Approved participant',
+              ),
+            ),
+          ),
+        ],
+      ],
+    );
   }
 
   @override
@@ -526,7 +782,7 @@ class _ActivityDetailsScreenState extends State<ActivityDetailsScreen> {
               ),
               _DetailRow(
                 Icons.people_outline,
-                'Capacity: ${activity!['maxParticipants']} people total, host included\nMinimum: ${activity!['minParticipants']}',
+                'Capacity: ${activity!['maxParticipants']} people total, host included\n${activity!['participantCount'] ?? 1} confirmed · ${activity!['remainingPlaces'] ?? ((activity!['maxParticipants'] as int) - 1)} places remaining\nMinimum: ${activity!['minParticipants']}',
               ),
               _DetailRow(
                 Icons.verified_user_outlined,
@@ -544,6 +800,7 @@ class _ActivityDetailsScreenState extends State<ActivityDetailsScreen> {
               ),
               const SizedBox(height: 8),
               Text(activity!['description'] as String),
+              _membershipSection(),
             ],
           ),
   );
