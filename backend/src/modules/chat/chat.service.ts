@@ -28,6 +28,8 @@ interface MessageRow extends QueryResultRow {
   sender_avatar_url: string | null;
 }
 
+import { NotificationsService } from '../notifications/notifications.service.js';
+
 @Injectable()
 export class ChatService {
   // In-memory rate limiting: track message timestamps per user
@@ -35,7 +37,10 @@ export class ChatService {
   private readonly RATE_LIMIT_WINDOW_MS = 5000;
   private readonly RATE_LIMIT_MAX_MESSAGES = 10;
 
-  constructor(private readonly database: DatabaseService) {}
+  constructor(
+    private readonly database: DatabaseService,
+    private readonly notificationsService?: NotificationsService,
+  ) {}
 
   /**
    * Authorizes that a user is either the host or an approved participant of the activity.
@@ -177,7 +182,7 @@ export class ChatService {
         );
       }
 
-      return {
+      const chatMessage: ChatMessage = {
         messageId: row.message_id,
         activityId: row.activity_id,
         senderId: row.sender_id,
@@ -190,8 +195,67 @@ export class ChatService {
             ? row.created_at.toISOString()
             : new Date(row.created_at).toISOString(),
       };
+
+      if (this.notificationsService) {
+        this.notifyChatParticipants(
+          activityId,
+          member.profileId,
+          member.displayName,
+          trimmed,
+          row.message_id,
+        ).catch(() => {});
+      }
+
+      return chatMessage;
     } catch (error) {
       this.rethrow(error);
+    }
+  }
+
+  private async notifyChatParticipants(
+    activityId: string,
+    senderProfileId: string,
+    senderName: string,
+    content: string,
+    messageId: string,
+  ): Promise<void> {
+    if (!this.notificationsService) return;
+    try {
+      const actRes = await this.database.query<{
+        host_user_id: string;
+        title: string;
+      }>(
+        'SELECT host_user_id, title FROM activities WHERE activity_id = $1',
+        [activityId],
+      );
+      const act = actRes.rows[0];
+      if (!act) return;
+
+      const guestsRes = await this.database.query<{ user_id: string }>(
+        "SELECT user_id FROM activity_memberships WHERE activity_id = $1 AND status = 'approved'",
+        [activityId],
+      );
+
+      const allRecipients = [
+        act.host_user_id,
+        ...guestsRes.rows.map((g) => g.user_id),
+      ].filter((id) => id !== senderProfileId);
+
+      const preview =
+        content.length > 80 ? `${content.slice(0, 77)}...` : content;
+
+      for (const recipientId of allRecipients) {
+        await this.notificationsService.createNotification({
+          recipientProfileId: recipientId,
+          type: 'chat_message',
+          title: `New message in "${act.title}"`,
+          message: `${senderName}: ${preview}`,
+          activityId,
+          referenceId: messageId,
+        });
+      }
+    } catch {
+      // Chat notification dispatch failures must not break messaging
     }
   }
 

@@ -1,8 +1,15 @@
-import { Module } from '@nestjs/common';
+import { Global, Module } from '@nestjs/common';
+import { NotificationsController, ActivityRemindersController } from './notifications.controller.js';
+import { NotificationsService } from './notifications.service.js';
+import { FcmPushService } from './fcm-push.service.js';
 
-/**
- * Notifications module placeholder for Milestone 0 foundation.
- * Planned for Milestone 4/5: In-app notification records and decoupled FCM push background dispatch.
- */
-@Module({})
+import { AuthModule } from '../auth/auth.module.js';
+
+@Global()
+@Module({
+  imports: [AuthModule],
+  controllers: [NotificationsController, ActivityRemindersController],
+  providers: [NotificationsService, FcmPushService],
+  exports: [NotificationsService, FcmPushService],
+})
 export class NotificationsModule {}

@@ -3,6 +3,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../core/network/api_client.dart';
 import '../activities/activity_screens.dart';
+import '../notifications/notifications_screen.dart';
 import '../profile/profile_screen.dart';
 
 export '../../core/network/api_client.dart' show ApiClient, ApiException;
@@ -506,6 +507,7 @@ class _HomeScreenState extends State<HomeScreen> {
     appBar: AppBar(
       title: const Text('Activity Discovery'),
       actions: [
+        NotificationBadgeButton(api: widget.api),
         IconButton(
           tooltip: 'My profile & interests',
           icon: const Icon(Icons.person_outline),
@@ -727,7 +729,10 @@ class _RetryScreenState extends State<_RetryScreen> {
             if (widget.currentUrl != null) ...[
               const SizedBox(height: 14),
               Container(
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 8,
+                ),
                 decoration: BoxDecoration(
                   color: Theme.of(context).colorScheme.surfaceContainerHighest,
                   borderRadius: BorderRadius.circular(8),

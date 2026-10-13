@@ -18,6 +18,8 @@ import { UsersController } from '../src/modules/users/users.controller.js';
 import { UsersService } from '../src/modules/users/users.service.js';
 import { InterestsController } from '../src/modules/interests/interests.controller.js';
 import { InterestsService } from '../src/modules/interests/interests.service.js';
+import { NotificationsController } from '../src/modules/notifications/notifications.controller.js';
+import { NotificationsService } from '../src/modules/notifications/notifications.service.js';
 
 describe('Activity Discovery API (e2e)', () => {
   let app: INestApplication<App>;
@@ -81,6 +83,12 @@ describe('Activity Discovery API (e2e)', () => {
         '/api/v1/activities/00000000-0000-4000-8000-000000000001/messages',
       )
       .send({ content: 'Test message' })
+      .expect(401);
+    await request(app.getHttpServer())
+      .get('/api/v1/notifications')
+      .expect(401);
+    await request(app.getHttpServer())
+      .get('/api/v1/notifications/unread-count')
       .expect(401);
   });
 
@@ -580,6 +588,134 @@ describe('Activity Discovery API (e2e)', () => {
         .patch('/api/v1/activities/00000000-0000-4000-8000-000000000001/cancel')
         .expect(200);
       expect(cancelPatchRes.body.status).toBe('cancelled');
+    } finally {
+      await testApp.close();
+    }
+  });
+
+  it('handles notification listing, unread counts, mark-read, mark-all-read, and device tokens', async () => {
+    const verifiedUser: AuthenticatedUser = {
+      userId: 'verified-notification-user',
+    };
+    const mockNotification = {
+      notificationId: '00000000-0000-4000-8000-000000000010',
+      recipientId: 'profile-notif-1',
+      type: 'activity_reminder',
+      title: 'Upcoming Yoga',
+      message: 'Your activity is starting soon!',
+      activityId: '00000000-0000-4000-8000-000000000001',
+      referenceId: null,
+      data: { startsAt: '2026-10-15T10:00:00Z' },
+      readAt: null,
+      createdAt: '2026-10-14T03:00:00Z',
+    };
+
+    const listNotifications = vi.fn().mockResolvedValue({
+      items: [mockNotification],
+      unreadCount: 1,
+      pagination: { limit: 20, offset: 0, total: 1, hasMore: false },
+    });
+    const getUnreadCount = vi.fn().mockResolvedValue({ unreadCount: 1 });
+    const markAsRead = vi.fn().mockResolvedValue({
+      ...mockNotification,
+      readAt: '2026-10-14T03:30:00Z',
+    });
+    const markAllAsRead = vi.fn().mockResolvedValue({ updatedCount: 1 });
+    const dismiss = vi.fn().mockResolvedValue({
+      notificationId: '00000000-0000-4000-8000-000000000010',
+      dismissed: true,
+    });
+    const registerDeviceToken = vi.fn().mockResolvedValue({ registered: true });
+    const removeDeviceToken = vi.fn().mockResolvedValue({ removed: true });
+
+    const moduleFixture = await Test.createTestingModule({
+      controllers: [NotificationsController],
+      providers: [
+        {
+          provide: NotificationsService,
+          useValue: {
+            listNotifications,
+            getUnreadCount,
+            markAsRead,
+            markAllAsRead,
+            dismiss,
+            registerDeviceToken,
+            removeDeviceToken,
+          },
+        },
+      ],
+    })
+      .overrideGuard(AuthGuard)
+      .useValue({
+        canActivate: (context: import('@nestjs/common').ExecutionContext) => {
+          context
+            .switchToHttp()
+            .getRequest<{ user?: AuthenticatedUser }>().user = verifiedUser;
+          return true;
+        },
+      })
+      .compile();
+
+    const testApp = moduleFixture.createNestApplication();
+    testApp.setGlobalPrefix('api/v1');
+    await testApp.init();
+
+    try {
+      // 1. GET /api/v1/notifications
+      const listRes = await request(testApp.getHttpServer())
+        .get('/api/v1/notifications?limit=20&offset=0&unreadOnly=false')
+        .expect(200);
+      expect(listRes.body.items).toHaveLength(1);
+      expect(listRes.body.unreadCount).toBe(1);
+      expect(listNotifications).toHaveBeenCalledWith(
+        verifiedUser,
+        expect.objectContaining({ limit: 20, offset: 0, unreadOnly: false }),
+      );
+
+      // 2. GET /api/v1/notifications/unread-count
+      const countRes = await request(testApp.getHttpServer())
+        .get('/api/v1/notifications/unread-count')
+        .expect(200);
+      expect(countRes.body.unreadCount).toBe(1);
+
+      // 3. PATCH /api/v1/notifications/:id/read
+      const readRes = await request(testApp.getHttpServer())
+        .patch('/api/v1/notifications/00000000-0000-4000-8000-000000000010/read')
+        .expect(200);
+      expect(readRes.body.readAt).toBe('2026-10-14T03:30:00Z');
+      expect(markAsRead).toHaveBeenCalledWith(
+        '00000000-0000-4000-8000-000000000010',
+        verifiedUser,
+      );
+
+      // 4. PATCH /api/v1/notifications/read-all
+      const readAllRes = await request(testApp.getHttpServer())
+        .patch('/api/v1/notifications/read-all')
+        .expect(200);
+      expect(readAllRes.body.updatedCount).toBe(1);
+
+      // 5. DELETE /api/v1/notifications/:id
+      const delRes = await request(testApp.getHttpServer())
+        .delete('/api/v1/notifications/00000000-0000-4000-8000-000000000010')
+        .expect(200);
+      expect(delRes.body.dismissed).toBe(true);
+      expect(dismiss).toHaveBeenCalledWith(
+        '00000000-0000-4000-8000-000000000010',
+        verifiedUser,
+      );
+
+      // 6. POST /api/v1/notifications/device-token
+      const regRes = await request(testApp.getHttpServer())
+        .post('/api/v1/notifications/device-token')
+        .send({ token: 'mock-fcm-device-token', deviceType: 'android' })
+        .expect(200);
+      expect(regRes.body.registered).toBe(true);
+
+      // 7. DELETE /api/v1/notifications/device-token/:token
+      const remRes = await request(testApp.getHttpServer())
+        .delete('/api/v1/notifications/device-token/mock-fcm-device-token')
+        .expect(200);
+      expect(remRes.body.removed).toBe(true);
     } finally {
       await testApp.close();
     }

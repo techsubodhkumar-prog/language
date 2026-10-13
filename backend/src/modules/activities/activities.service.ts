@@ -13,6 +13,7 @@ import type { AuthenticatedUser } from '../auth/auth.types.js';
 import type { CreateActivityDto } from './dto/create-activity.dto.js';
 import type { ListActivitiesDto } from './dto/list-activities.dto.js';
 import type { UpdateActivityDto } from './dto/update-activity.dto.js';
+import { NotificationsService } from '../notifications/notifications.service.js';
 
 interface ActivityRow {
   activity_id: string;
@@ -87,7 +88,10 @@ function mapActivity(row: ActivityRow, isHost = false) {
 
 @Injectable()
 export class ActivitiesService {
-  constructor(private readonly database: DatabaseService) {}
+  constructor(
+    private readonly database: DatabaseService,
+    private readonly notificationsService?: NotificationsService,
+  ) {}
 
   private async query<T extends QueryResultRow = any>(
     text: string,
@@ -399,11 +403,33 @@ export class ActivitiesService {
       "UPDATE activities SET status = 'cancelled', updated_at = NOW() WHERE activity_id = $1 AND status = 'scheduled'",
       [id],
     );
+
+    if (this.notificationsService) {
+      try {
+        const guests = await this.query<{ user_id: string }>(
+          "SELECT user_id FROM activity_memberships WHERE activity_id = $1 AND status = 'approved'",
+          [id],
+        );
+        for (const guest of guests.rows) {
+          await this.notificationsService.createNotification({
+            recipientProfileId: guest.user_id,
+            type: 'activity_cancelled',
+            title: 'Activity Cancelled',
+            message: `The activity "${current.title}" has been cancelled by the host.`,
+            activityId: id,
+          });
+        }
+      } catch {
+        // Notification dispatch failure must not roll back successful activity cancellation
+      }
+    }
+
     return { activityId: id, status: 'cancelled' };
   }
 
   private async getRaw(id: string) {
     const result = await this.query<{
+      title: string;
       host_user_id: string;
       status: string;
       starts_at: Date;
@@ -411,7 +437,7 @@ export class ActivitiesService {
       min_participants: number;
       max_participants: number;
     }>(
-      'SELECT host_user_id, status, starts_at, ends_at, min_participants, max_participants FROM activities WHERE activity_id = $1',
+      'SELECT title, host_user_id, status, starts_at, ends_at, min_participants, max_participants FROM activities WHERE activity_id = $1',
       [id],
     );
     if (!result.rows[0]) throw new NotFoundException('Activity not found.');

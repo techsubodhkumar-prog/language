@@ -8,6 +8,7 @@ import 'package:activity_discovery/features/auth/auth_flow.dart';
 import 'package:activity_discovery/features/profile/profile_screen.dart';
 import 'package:activity_discovery/features/activities/activity_screens.dart';
 import 'package:activity_discovery/features/chat/chat_screen.dart';
+import 'package:activity_discovery/features/notifications/notifications_screen.dart';
 
 void main() {
   testWidgets('App explains required Supabase client configuration', (
@@ -556,6 +557,96 @@ void main() {
     expect(find.text('Historical message 0'), findsOneWidget);
     expect(find.text('Historical message 3'), findsOneWidget);
   });
+
+  testWidgets(
+    'Notification badge displays unread count and navigates to screen',
+    (tester) async {
+      final api = _FakeNotificationsApi(unreadCount: 3);
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            appBar: AppBar(actions: [NotificationBadgeButton(api: api)]),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      expect(find.text('3'), findsOneWidget);
+      expect(find.byIcon(Icons.notifications_active), findsOneWidget);
+
+      await tester.tap(find.byType(NotificationBadgeButton));
+      await tester.pumpAndSettle();
+      expect(find.byType(NotificationsScreen), findsOneWidget);
+    },
+  );
+
+  testWidgets(
+    'Notifications screen displays list with unread indicators and handles mark all read',
+    (tester) async {
+      final notifications = [
+        {
+          'notificationId': 'n-1',
+          'type': 'join_request',
+          'title': 'New Join Request',
+          'message': 'Jane requested to join Sunset Hike.',
+          'activityId': 'act-1',
+          'isRead': false,
+          'readAt': null,
+          'createdAt': DateTime.now()
+              .subtract(const Duration(minutes: 5))
+              .toIso8601String(),
+        },
+        {
+          'notificationId': 'n-2',
+          'type': 'activity_reminder',
+          'title': 'Activity Reminder',
+          'message': 'Morning Yoga starts in 2 hours.',
+          'activityId': 'act-2',
+          'isRead': true,
+          'readAt': DateTime.now()
+              .subtract(const Duration(hours: 1))
+              .toIso8601String(),
+          'createdAt': DateTime.now()
+              .subtract(const Duration(hours: 2))
+              .toIso8601String(),
+        },
+      ];
+
+      final api = _FakeNotificationsApi(items: notifications, unreadCount: 1);
+      await tester.pumpWidget(MaterialApp(home: NotificationsScreen(api: api)));
+      await tester.pumpAndSettle();
+
+      expect(find.text('New Join Request'), findsOneWidget);
+      expect(find.text('Jane requested to join Sunset Hike.'), findsOneWidget);
+      expect(find.text('Activity Reminder'), findsOneWidget);
+      expect(find.text('Mark all read'), findsOneWidget);
+
+      await tester.tap(find.text('Mark all read'));
+      await tester.pumpAndSettle();
+
+      expect(api.calls.any((c) => c.contains('/read-all')), isTrue);
+    },
+  );
+
+  testWidgets(
+    'Notifications screen displays empty state when no notifications',
+    (tester) async {
+      final api = _FakeNotificationsApi(items: [], unreadCount: 0);
+      await tester.pumpWidget(MaterialApp(home: NotificationsScreen(api: api)));
+      await tester.pumpAndSettle();
+
+      expect(find.text('No notifications yet'), findsOneWidget);
+    },
+  );
+
+  testWidgets('Notifications screen displays error and handles retry', (
+    tester,
+  ) async {
+    final api = _FakeNotificationsApi(fail: true);
+    await tester.pumpWidget(MaterialApp(home: NotificationsScreen(api: api)));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Retry'), findsOneWidget);
+  });
 }
 
 class _FakeApiClient extends ApiClient {
@@ -790,6 +881,50 @@ class _FakeChatApi extends ApiClient {
         'content': bodyMap['content'],
         'createdAt': DateTime.now().toIso8601String(),
       };
+    }
+    return <String, dynamic>{};
+  }
+}
+
+class _FakeNotificationsApi extends ApiClient {
+  _FakeNotificationsApi({
+    this.items = const [],
+    this.unreadCount = 0,
+    this.fail = false,
+  }) : super('https://api.example.test');
+
+  final List<Map<String, dynamic>> items;
+  final int unreadCount;
+  final bool fail;
+  final List<String> calls = [];
+
+  @override
+  Future<dynamic> request(String method, String path, {Object? body}) async {
+    calls.add('$method $path');
+    if (fail) throw const ApiException(500, 'Server error');
+    if (path.startsWith('/notifications/unread-count')) {
+      return {'unreadCount': unreadCount};
+    }
+    if (method == 'GET' && path.startsWith('/notifications')) {
+      return {
+        'items': items,
+        'unreadCount': unreadCount,
+        'pagination': {
+          'limit': 20,
+          'offset': 0,
+          'total': items.length,
+          'hasMore': false,
+        },
+      };
+    }
+    if (method == 'PATCH' && path.contains('/read-all')) {
+      return {'updatedCount': unreadCount};
+    }
+    if (method == 'PATCH' && path.contains('/read')) {
+      return {'readAt': DateTime.now().toIso8601String()};
+    }
+    if (method == 'DELETE' && path.startsWith('/notifications/')) {
+      return {'dismissed': true};
     }
     return <String, dynamic>{};
   }

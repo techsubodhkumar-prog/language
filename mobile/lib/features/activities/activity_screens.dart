@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../core/network/api_client.dart';
 import '../chat/chat_screen.dart';
+import '../notifications/notifications_screen.dart';
 
 class ActivityDiscoveryScreen extends StatefulWidget {
   const ActivityDiscoveryScreen({
@@ -156,6 +157,7 @@ class _ActivityDiscoveryScreenState extends State<ActivityDiscoveryScreen> {
     appBar: AppBar(
       title: const Text('Discover activities'),
       actions: [
+        NotificationBadgeButton(api: widget.api),
         IconButton(
           tooltip: 'Refresh activities',
           onPressed: _load,

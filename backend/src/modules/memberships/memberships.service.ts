@@ -9,9 +9,11 @@ import {
 import type { QueryResultRow, PoolClient } from 'pg';
 import { DatabaseService } from '../../database/database.service.js';
 import type { AuthenticatedUser } from '../auth/auth.types.js';
+import { NotificationsService } from '../notifications/notifications.service.js';
 
 interface ActivityLock extends QueryResultRow {
   activity_id: string;
+  title: string;
   host_user_id: string;
   status: string;
   starts_at: Date | string;
@@ -22,7 +24,10 @@ interface ActivityLock extends QueryResultRow {
 
 @Injectable()
 export class MembershipsService {
-  constructor(private readonly database: DatabaseService) {}
+  constructor(
+    private readonly database: DatabaseService,
+    private readonly notificationsService?: NotificationsService,
+  ) {}
 
   private async profileId(client: PoolClient, subject: string) {
     const result = await client.query<{ user_id: string }>(
@@ -38,7 +43,7 @@ export class MembershipsService {
     id: string,
   ): Promise<ActivityLock> {
     const result = await client.query<ActivityLock>(
-      `SELECT activity_id, host_user_id, status, starts_at, max_participants,
+      `SELECT activity_id, title, host_user_id, status, starts_at, max_participants,
               join_policy, visibility
        FROM activities WHERE activity_id = $1 FOR UPDATE`,
       [id],
@@ -96,27 +101,72 @@ export class MembershipsService {
         throw new ConflictException('This activity is full.');
 
       const autoJoin = activity.join_policy === 'auto_join';
+      const newStatus = autoJoin ? 'approved' : 'requested';
+      let membershipId: string;
       if (previous) {
         await client.query(
           `UPDATE activity_memberships SET status = $1, requested_at = NOW(),
            decided_at = CASE WHEN $1 = 'approved' THEN NOW() ELSE NULL END, updated_at = NOW()
            WHERE membership_id = $2`,
-          [autoJoin ? 'approved' : 'requested', previous.membership_id],
+          [newStatus, previous.membership_id],
         );
-        return {
-          membershipId: previous.membership_id,
-          status: autoJoin ? 'approved' : 'requested',
-        };
+        membershipId = previous.membership_id;
+      } else {
+        const result = await client.query<{ membership_id: string }>(
+          `INSERT INTO activity_memberships(activity_id, user_id, status, decided_at)
+           VALUES ($1, $2, $3, CASE WHEN $3 = 'approved' THEN NOW() ELSE NULL END)
+           RETURNING membership_id`,
+          [activityId, profileId, newStatus],
+        );
+        membershipId = result.rows[0].membership_id;
       }
-      const result = await client.query<{ membership_id: string }>(
-        `INSERT INTO activity_memberships(activity_id, user_id, status, decided_at)
-         VALUES ($1, $2, $3, CASE WHEN $3 = 'approved' THEN NOW() ELSE NULL END)
-         RETURNING membership_id`,
-        [activityId, profileId, autoJoin ? 'approved' : 'requested'],
-      );
+
+      if (this.notificationsService) {
+        try {
+          if (autoJoin) {
+            await this.notificationsService.createNotification(
+              {
+                recipientProfileId: activity.host_user_id,
+                type: 'join_request',
+                title: 'New Participant Joined',
+                message: `A participant joined your activity "${activity.title}".`,
+                activityId,
+                referenceId: membershipId,
+              },
+              client,
+            );
+            await this.notificationsService.createNotification(
+              {
+                recipientProfileId: profileId,
+                type: 'request_approved',
+                title: 'Joined Activity',
+                message: `You successfully joined "${activity.title}".`,
+                activityId,
+                referenceId: membershipId,
+              },
+              client,
+            );
+          } else {
+            await this.notificationsService.createNotification(
+              {
+                recipientProfileId: activity.host_user_id,
+                type: 'join_request',
+                title: 'New Join Request',
+                message: `You have a new request to join "${activity.title}".`,
+                activityId,
+                referenceId: membershipId,
+              },
+              client,
+            );
+          }
+        } catch {
+          // Notification failures must not roll back successful membership join
+        }
+      }
+
       return {
-        membershipId: result.rows[0].membership_id,
-        status: autoJoin ? 'approved' : 'requested',
+        membershipId,
+        status: newStatus,
       };
     });
   }
@@ -237,6 +287,34 @@ export class MembershipsService {
         'UPDATE activity_memberships SET status=$1, decided_at=NOW(), updated_at=NOW() WHERE membership_id=$2',
         [decision, membershipId],
       );
+
+      if (this.notificationsService) {
+        try {
+          await this.notificationsService.createNotification(
+            {
+              recipientProfileId: member.rows[0].user_id,
+              type:
+                decision === 'approved'
+                  ? 'request_approved'
+                  : 'request_rejected',
+              title:
+                decision === 'approved'
+                  ? 'Join Request Approved!'
+                  : 'Join Request Declined',
+              message:
+                decision === 'approved'
+                  ? `Your request to join "${activity.title}" was approved!`
+                  : `Your request to join "${activity.title}" was declined.`,
+              activityId,
+              referenceId: membershipId,
+            },
+            client,
+          );
+        } catch {
+          // Notification failures must not roll back decision
+        }
+      }
+
       return { membershipId, status: decision };
     });
   }
