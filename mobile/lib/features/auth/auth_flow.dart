@@ -3,6 +3,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../core/network/api_client.dart';
 import '../activities/activity_screens.dart';
+import '../profile/profile_screen.dart';
 
 export '../../core/network/api_client.dart' show ApiClient, ApiException;
 
@@ -89,6 +90,7 @@ class _AuthScreenState extends State<AuthScreen> {
   final _email = TextEditingController();
   final _password = TextEditingController();
   bool registering = false, busy = false;
+  bool _obscurePassword = true;
   String? error, info;
   Future<void> submit() async {
     if (!(_form.currentState?.validate() ?? false)) return;
@@ -178,15 +180,27 @@ class _AuthScreenState extends State<AuthScreen> {
                 const SizedBox(height: 16),
                 TextFormField(
                   controller: _password,
-                  obscureText: true,
+                  obscureText: _obscurePassword,
                   autofillHints: [
                     registering
                         ? AutofillHints.newPassword
                         : AutofillHints.password,
                   ],
-                  decoration: const InputDecoration(
+                  decoration: InputDecoration(
                     labelText: 'Password',
-                    border: OutlineInputBorder(),
+                    border: const OutlineInputBorder(),
+                    suffixIcon: IconButton(
+                      icon: Icon(
+                        _obscurePassword
+                            ? Icons.visibility_outlined
+                            : Icons.visibility_off_outlined,
+                      ),
+                      tooltip: _obscurePassword
+                          ? 'Show password'
+                          : 'Hide password',
+                      onPressed: () =>
+                          setState(() => _obscurePassword = !_obscurePassword),
+                    ),
                   ),
                   validator: (v) => v == null || v.length < 8
                       ? 'Use at least 8 characters'
@@ -480,6 +494,16 @@ class _HomeScreenState extends State<HomeScreen> {
       title: const Text('Activity Discovery'),
       actions: [
         IconButton(
+          tooltip: 'My profile & interests',
+          icon: const Icon(Icons.person_outline),
+          onPressed: () async {
+            await Navigator.of(context).push(
+              MaterialPageRoute(builder: (_) => ProfileScreen(api: widget.api)),
+            );
+            _load();
+          },
+        ),
+        IconButton(
           tooltip: 'Sign out',
           onPressed: () => Supabase.instance.client.auth.signOut(),
           icon: const Icon(Icons.logout),
@@ -530,6 +554,19 @@ class _HomeScreenState extends State<HomeScreen> {
                     ),
                     icon: const Icon(Icons.add),
                     label: const Text('Create an activity'),
+                  ),
+                  const SizedBox(height: 8),
+                  OutlinedButton.icon(
+                    onPressed: () async {
+                      await Navigator.of(context).push(
+                        MaterialPageRoute(
+                          builder: (_) => ProfileScreen(api: widget.api),
+                        ),
+                      );
+                      _load();
+                    },
+                    icon: const Icon(Icons.person_outline),
+                    label: const Text('My profile & interests'),
                   ),
                   const SizedBox(height: 8),
                   TextButton(

@@ -207,4 +207,82 @@ describe('ActivitiesService', () => {
       }),
     ).rejects.toBeInstanceOf(BadRequestException);
   });
+
+  it('filters activities with search and date aliases using safe parameterized queries', async () => {
+    database.query
+      .mockResolvedValueOnce({ rows: [{ total: '1' }] })
+      .mockResolvedValueOnce({ rows: [activityRow] });
+
+    const result = await service.list(
+      { search: 'cricket', dateFrom: '2026-10-15T00:00:00.000Z', limit: 10, offset: 0 },
+      user,
+    );
+
+    expect(result.items).toHaveLength(1);
+    const querySql = database.query.mock.calls[0][0];
+    expect(querySql).toContain('a.starts_at >= $1::timestamptz');
+    expect(querySql).toContain(
+      '(a.title ILIKE $2 OR a.description ILIKE $3 OR a.location_name ILIKE $4)',
+    );
+    expect(database.query.mock.calls[0][1]).toEqual([
+      '2026-10-15T00:00:00.000Z',
+      '%cricket%',
+      '%cricket%',
+      '%cricket%',
+    ]);
+  });
+
+  it('orders by newest first when sort=newest is requested', async () => {
+    database.query
+      .mockResolvedValueOnce({ rows: [{ total: '1' }] })
+      .mockResolvedValueOnce({ rows: [activityRow] });
+
+    await service.list({ sort: 'newest', limit: 10, offset: 0 }, user);
+    expect(database.query.mock.calls[1][0]).toContain(
+      'ORDER BY a.created_at DESC, a.activity_id DESC',
+    );
+  });
+
+  it('allows the host to cancel an activity and forbids non-hosts', async () => {
+    // 1. Host can cancel
+    database.query
+      .mockResolvedValueOnce({
+        rows: [
+          {
+            host_user_id: 'profile-1',
+            status: 'scheduled',
+            starts_at: new Date(Date.now() + 86400000),
+            ends_at: null,
+            min_participants: 1,
+            max_participants: 6,
+          },
+        ],
+      })
+      .mockResolvedValueOnce({ rows: [{ user_id: 'profile-1' }] })
+      .mockResolvedValueOnce({ rows: [] });
+
+    const res = await service.cancel(activityRow.activity_id, user);
+    expect(res).toEqual({ activityId: activityRow.activity_id, status: 'cancelled' });
+    expect(database.query.mock.calls[2][0]).toContain("status = 'cancelled'");
+
+    // 2. Non-host is forbidden from cancelling
+    database.query
+      .mockResolvedValueOnce({
+        rows: [
+          {
+            host_user_id: 'different-profile',
+            status: 'scheduled',
+            starts_at: new Date(Date.now() + 86400000),
+            ends_at: null,
+            min_participants: 1,
+            max_participants: 6,
+          },
+        ],
+      })
+      .mockResolvedValueOnce({ rows: [{ user_id: 'profile-1' }] });
+
+    await expect(
+      service.cancel(activityRow.activity_id, user),
+    ).rejects.toBeInstanceOf(ForbiddenException);
+  });
 });

@@ -196,7 +196,9 @@ export class ActivitiesService {
   }
 
   async list(query: ListActivitiesDto, user: AuthenticatedUser) {
-    const { latitude, longitude, radiusKm, from, to } = query;
+    const from = query.from ?? query.dateFrom;
+    const to = query.to ?? query.dateTo;
+    const { latitude, longitude, radiusKm } = query;
     if ((latitude === undefined) !== (longitude === undefined)) {
       throw new BadRequestException(
         'Provide both latitude and longitude for location filtering.',
@@ -225,11 +227,19 @@ export class ActivitiesService {
       params.push(value);
       filters.push(sql.replace('?', `$${params.length}`));
     };
-    if (query.categoryId) add('a.category_id = ?', query.categoryId);
+    const cat = query.categoryId ?? query.category;
+    if (cat) add('a.category_id = ?', cat);
     if (from) add('a.starts_at >= ?::timestamptz', from);
     if (to) add('a.starts_at <= ?::timestamptz', to);
     if (query.location?.trim())
       add('a.location_name ILIKE ?', `%${query.location.trim()}%`);
+    if (query.search?.trim()) {
+      const term = `%${query.search.trim()}%`;
+      params.push(term, term, term);
+      filters.push(
+        `(a.title ILIKE $${params.length - 2} OR a.description ILIKE $${params.length - 1} OR a.location_name ILIKE $${params.length})`,
+      );
+    }
     if (
       latitude !== undefined &&
       longitude !== undefined &&
@@ -245,10 +255,16 @@ export class ActivitiesService {
       `SELECT COUNT(*)::text AS total FROM activities a WHERE ${where}`,
       params,
     );
-    const listParams = [...params, query.limit, query.offset];
+    const computedOffset =
+      query.page !== undefined ? (query.page - 1) * query.limit : query.offset;
+    const listParams = [...params, query.limit, computedOffset];
+    const orderBy =
+      query.sort === 'newest'
+        ? 'a.created_at DESC, a.activity_id DESC'
+        : 'a.starts_at ASC, a.activity_id ASC';
     const result = await this.query<ActivityRow>(
       `${SELECT_ACTIVITY} WHERE ${where}
-       ORDER BY a.starts_at ASC, a.activity_id ASC
+       ORDER BY ${orderBy}
        LIMIT $${listParams.length - 1} OFFSET $${listParams.length}`,
       listParams,
     );
@@ -258,7 +274,7 @@ export class ActivitiesService {
       ),
       pagination: {
         limit: query.limit,
-        offset: query.offset,
+        offset: computedOffset,
         total: Number(count.rows[0]?.total ?? 0),
       },
     };

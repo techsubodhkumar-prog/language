@@ -61,4 +61,52 @@ describe('InterestsService', () => {
       ['internal-user', 'cricket'],
     );
   });
+
+  it('handles empty selection by safely clearing existing interests', async () => {
+    const transactionQuery = vi.fn().mockResolvedValue({ rows: [] });
+    database.query
+      .mockResolvedValueOnce({ rows: [{ user_id: 'internal-user' }] })
+      .mockResolvedValueOnce({ rows: [] });
+    database.withTransaction.mockImplementation(async (callback) =>
+      callback({ query: transactionQuery }),
+    );
+
+    const result = await service.replaceUserInterests('verified-user', []);
+    expect(result).toEqual([]);
+    expect(database.withTransaction).toHaveBeenCalledOnce();
+    expect(transactionQuery).toHaveBeenCalledWith(
+      'DELETE FROM user_interests WHERE user_id = $1',
+      ['internal-user'],
+    );
+  });
+
+  it('rolls back and propagates error if transaction operation fails', async () => {
+    database.query
+      .mockResolvedValueOnce({ rows: [{ user_id: 'internal-user' }] })
+      .mockResolvedValueOnce({ rows: [{ interest_id: 'cricket' }] });
+    database.withTransaction.mockRejectedValueOnce(
+      new Error('Database transaction deadlocked'),
+    );
+
+    await expect(
+      service.replaceUserInterests('verified-user', ['cricket']),
+    ).rejects.toThrow('Database transaction deadlocked');
+  });
+
+  it('lists available curated interests from database', async () => {
+    database.query.mockResolvedValueOnce({
+      rows: [
+        { interest_id: 'cricket', name: 'Cricket', category: 'sports' },
+        { interest_id: 'football', name: 'Football', category: 'sports' },
+      ],
+    });
+
+    const items = await service.listAvailableInterests();
+    expect(items).toHaveLength(2);
+    expect(items[0]).toEqual({
+      interestId: 'cricket',
+      name: 'Cricket',
+      category: 'sports',
+    });
+  });
 });

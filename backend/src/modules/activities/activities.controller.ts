@@ -71,4 +71,12 @@ export class ActivitiesController {
   ) {
     return this.activities.cancel(id, user);
   }
+
+  @Post(':id/cancel')
+  cancelPost(
+    @Param('id', new ParseUUIDPipe()) id: string,
+    @CurrentUser() user: AuthenticatedUser,
+  ) {
+    return this.activities.cancel(id, user);
+  }
 }

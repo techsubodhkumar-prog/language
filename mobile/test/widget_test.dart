@@ -5,6 +5,7 @@ import 'package:flutter_test/flutter_test.dart';
 
 import 'package:activity_discovery/main.dart';
 import 'package:activity_discovery/features/auth/auth_flow.dart';
+import 'package:activity_discovery/features/profile/profile_screen.dart';
 import 'package:activity_discovery/features/activities/activity_screens.dart';
 import 'package:activity_discovery/features/chat/chat_screen.dart';
 
@@ -34,6 +35,107 @@ void main() {
 
     expect(find.text('Enter a valid email'), findsOneWidget);
   });
+
+  testWidgets('Password visibility control toggles password field obscurity', (
+    WidgetTester tester,
+  ) async {
+    await tester.pumpWidget(const MaterialApp(home: AuthScreen()));
+    final passwordFinder = find.byType(TextFormField).at(1);
+    final toggleButton = find.byTooltip('Show password');
+
+    TextField field = tester.widget<TextField>(
+      find.descendant(of: passwordFinder, matching: find.byType(TextField)),
+    );
+    expect(field.obscureText, isTrue);
+    expect(toggleButton, findsOneWidget);
+
+    await tester.tap(toggleButton);
+    await tester.pump();
+
+    field = tester.widget<TextField>(
+      find.descendant(of: passwordFinder, matching: find.byType(TextField)),
+    );
+    expect(field.obscureText, isFalse);
+    expect(find.byTooltip('Hide password'), findsOneWidget);
+
+    await tester.tap(find.byTooltip('Hide password'));
+    await tester.pump();
+
+    field = tester.widget<TextField>(
+      find.descendant(of: passwordFinder, matching: find.byType(TextField)),
+    );
+    expect(field.obscureText, isTrue);
+  });
+
+  testWidgets(
+    'AuthScreen switches between login and registration flows with appropriate validation',
+    (WidgetTester tester) async {
+      await tester.pumpWidget(const MaterialApp(home: AuthScreen()));
+
+      expect(find.text('Welcome back'), findsOneWidget);
+      expect(find.text('Sign in'), findsOneWidget);
+      expect(find.text('New here? Create an account'), findsOneWidget);
+
+      await tester.tap(find.text('New here? Create an account'));
+      await tester.pump();
+
+      expect(find.text('Create your account'), findsOneWidget);
+      expect(find.text('Create account'), findsOneWidget);
+      expect(find.text('Already have an account? Sign in'), findsOneWidget);
+
+      await tester.enterText(
+        find.byType(TextFormField).at(0),
+        'user@example.com',
+      );
+      await tester.enterText(find.byType(TextFormField).at(1), 'short');
+      await tester.tap(find.text('Create account'));
+      await tester.pump();
+
+      expect(find.text('Use at least 8 characters'), findsOneWidget);
+    },
+  );
+
+  testWidgets(
+    'ProfileScreen loads existing profile and interests and saves updates',
+    (WidgetTester tester) async {
+      final api = _FakeApiClient(
+        profile: {
+          'userId': 'usr-1',
+          'displayName': 'Alex',
+          'bio': 'Active member',
+        },
+        userInterests: [
+          {'interestId': 'cricket', 'name': 'Cricket', 'category': 'sports'},
+        ],
+      );
+
+      var updated = false;
+      await tester.pumpWidget(
+        MaterialApp(
+          home: ProfileScreen(api: api, onProfileUpdated: () => updated = true),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.text('Alex'), findsOneWidget);
+      expect(find.text('Active member'), findsOneWidget);
+      expect(find.text('Cricket'), findsOneWidget);
+
+      await tester.enterText(find.byType(TextFormField).first, 'Alex Updated');
+      await tester.tap(find.text('Football'));
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.text('Save Changes'));
+      await tester.pumpAndSettle();
+
+      expect(updated, isTrue);
+      expect(
+        api.calls,
+        containsAll(['/users/me', '/interests', '/interests/me']),
+      );
+      expect(api.savedBodies['/users/me']?['displayName'], 'Alex Updated');
+    },
+  );
 
   testWidgets('Onboarding validates and saves profile and interests', (
     WidgetTester tester,
@@ -236,44 +338,42 @@ void main() {
     },
   );
 
-  testWidgets(
-    'Host or approved participant sees Group chat entry point',
-    (tester) async {
-      final api = _FakeActivityApi(isHost: true);
-      await tester.pumpWidget(
-        MaterialApp(
-          home: ActivityDetailsScreen(api: api, activityId: 'activity-1'),
-        ),
-      );
-      await tester.pumpAndSettle();
-      expect(find.text('Group chat'), findsOneWidget);
-      expect(find.byTooltip('Group chat'), findsOneWidget);
-    },
-  );
+  testWidgets('Host or approved participant sees Group chat entry point', (
+    tester,
+  ) async {
+    final api = _FakeActivityApi(isHost: true);
+    await tester.pumpWidget(
+      MaterialApp(
+        home: ActivityDetailsScreen(api: api, activityId: 'activity-1'),
+      ),
+    );
+    await tester.pumpAndSettle();
+    expect(find.text('Group chat'), findsOneWidget);
+    expect(find.byTooltip('Group chat'), findsOneWidget);
+  });
 
-  testWidgets(
-    'Chat screen renders empty state when no messages exist',
-    (tester) async {
-      final api = _FakeChatApi(messages: []);
-      await tester.pumpWidget(
-        MaterialApp(
-          home: ActivityChatScreen(
-            api: api,
-            activityId: 'activity-1',
-            activityTitle: 'Morning run chat',
-            enableRealtime: false,
-          ),
+  testWidgets('Chat screen renders empty state when no messages exist', (
+    tester,
+  ) async {
+    final api = _FakeChatApi(messages: []);
+    await tester.pumpWidget(
+      MaterialApp(
+        home: ActivityChatScreen(
+          api: api,
+          activityId: 'activity-1',
+          activityTitle: 'Morning run chat',
+          enableRealtime: false,
         ),
-      );
-      await tester.pumpAndSettle();
-      expect(find.text('Morning run chat'), findsOneWidget);
-      expect(find.text('No messages yet.'), findsOneWidget);
-      expect(
-        find.text('Say hello to start coordinating with the group!'),
-        findsOneWidget,
-      );
-    },
-  );
+      ),
+    );
+    await tester.pumpAndSettle();
+    expect(find.text('Morning run chat'), findsOneWidget);
+    expect(find.text('No messages yet.'), findsOneWidget);
+    expect(
+      find.text('Say hello to start coordinating with the group!'),
+      findsOneWidget,
+    );
+  });
 
   testWidgets(
     'Chat screen renders messages with sent and received distinctions',
@@ -319,28 +419,27 @@ void main() {
     },
   );
 
-  testWidgets(
-    'Sending a message posts to API and updates conversation',
-    (tester) async {
-      final api = _FakeChatApi(messages: []);
-      await tester.pumpWidget(
-        MaterialApp(
-          home: ActivityChatScreen(
-            api: api,
-            activityId: 'activity-1',
-            currentUserId: 'user-me',
-            enableRealtime: false,
-          ),
+  testWidgets('Sending a message posts to API and updates conversation', (
+    tester,
+  ) async {
+    final api = _FakeChatApi(messages: []);
+    await tester.pumpWidget(
+      MaterialApp(
+        home: ActivityChatScreen(
+          api: api,
+          activityId: 'activity-1',
+          currentUserId: 'user-me',
+          enableRealtime: false,
         ),
-      );
-      await tester.pumpAndSettle();
-      await tester.enterText(find.byType(TextField), 'See you at 7am');
-      await tester.tap(find.byIcon(Icons.send));
-      await tester.pumpAndSettle();
-      expect(find.text('See you at 7am'), findsOneWidget);
-      expect(api.sentBodies, contains(containsPair('content', 'See you at 7am')));
-    },
-  );
+      ),
+    );
+    await tester.pumpAndSettle();
+    await tester.enterText(find.byType(TextField), 'See you at 7am');
+    await tester.tap(find.byIcon(Icons.send));
+    await tester.pumpAndSettle();
+    expect(find.text('See you at 7am'), findsOneWidget);
+    expect(api.sentBodies, contains(containsPair('content', 'See you at 7am')));
+  });
 
   testWidgets('Chat ignores empty or whitespace messages', (tester) async {
     final api = _FakeChatApi(messages: []);
@@ -360,124 +459,153 @@ void main() {
     expect(api.sentBodies, isEmpty);
   });
 
-  testWidgets(
-    'Chat displays error state on failure and allows retry',
-    (tester) async {
-      final api = _FakeChatApi(fail: true);
-      await tester.pumpWidget(
-        MaterialApp(
-          home: ActivityChatScreen(
-            api: api,
-            activityId: 'activity-1',
-            enableRealtime: false,
-          ),
+  testWidgets('Chat displays error state on failure and allows retry', (
+    tester,
+  ) async {
+    final api = _FakeChatApi(fail: true);
+    await tester.pumpWidget(
+      MaterialApp(
+        home: ActivityChatScreen(
+          api: api,
+          activityId: 'activity-1',
+          enableRealtime: false,
         ),
-      );
-      await tester.pumpAndSettle();
-      expect(find.textContaining('Could not load messages'), findsOneWidget);
-      expect(find.text('Retry'), findsOneWidget);
-    },
-  );
+      ),
+    );
+    await tester.pumpAndSettle();
+    expect(find.textContaining('Could not load messages'), findsOneWidget);
+    expect(find.text('Retry'), findsOneWidget);
+  });
 
-  testWidgets(
-    'Unauthorized user shows Access Restricted state',
-    (tester) async {
-      final api = _FakeChatApi(forbidden: true);
-      await tester.pumpWidget(
-        MaterialApp(
-          home: ActivityChatScreen(
-            api: api,
-            activityId: 'activity-1',
-            enableRealtime: false,
-          ),
+  testWidgets('Unauthorized user shows Access Restricted state', (
+    tester,
+  ) async {
+    final api = _FakeChatApi(forbidden: true);
+    await tester.pumpWidget(
+      MaterialApp(
+        home: ActivityChatScreen(
+          api: api,
+          activityId: 'activity-1',
+          enableRealtime: false,
         ),
-      );
-      await tester.pumpAndSettle();
-      expect(find.text('Access Restricted'), findsOneWidget);
-      expect(
-        find.textContaining('Only the host and approved participants'),
-        findsOneWidget,
-      );
-      expect(find.text('Back to activity'), findsOneWidget);
-    },
-  );
+      ),
+    );
+    await tester.pumpAndSettle();
+    expect(find.text('Access Restricted'), findsOneWidget);
+    expect(
+      find.textContaining('Only the host and approved participants'),
+      findsOneWidget,
+    );
+    expect(find.text('Back to activity'), findsOneWidget);
+  });
 
-  testWidgets(
-    'Chat screen dedupes messages with same message ID',
-    (tester) async {
-      final msg = {
-        'messageId': 'dup-1',
+  testWidgets('Chat screen dedupes messages with same message ID', (
+    tester,
+  ) async {
+    final msg = {
+      'messageId': 'dup-1',
+      'activityId': 'activity-1',
+      'senderId': 'p1',
+      'senderSupabaseUserId': 'u1',
+      'senderName': 'Sam',
+      'content': 'Single message',
+      'createdAt': DateTime.now().toIso8601String(),
+    };
+    final api = _FakeChatApi(messages: [msg, msg]);
+    await tester.pumpWidget(
+      MaterialApp(
+        home: ActivityChatScreen(
+          api: api,
+          activityId: 'activity-1',
+          enableRealtime: false,
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    expect(find.text('Single message'), findsOneWidget);
+  });
+
+  testWidgets('Chat screen handles pagination when more messages exist', (
+    tester,
+  ) async {
+    final messages = List.generate(
+      4,
+      (i) => {
+        'messageId': 'page-msg-$i',
         'activityId': 'activity-1',
-        'senderId': 'p1',
-        'senderSupabaseUserId': 'u1',
-        'senderName': 'Sam',
-        'content': 'Single message',
-        'createdAt': DateTime.now().toIso8601String(),
-      };
-      final api = _FakeChatApi(messages: [msg, msg]);
-      await tester.pumpWidget(
-        MaterialApp(
-          home: ActivityChatScreen(
-            api: api,
-            activityId: 'activity-1',
-            enableRealtime: false,
-          ),
+        'senderId': 'p$i',
+        'senderSupabaseUserId': 'u$i',
+        'senderName': 'User $i',
+        'content': 'Historical message $i',
+        'createdAt': DateTime.now()
+            .subtract(Duration(minutes: 20 - i))
+            .toIso8601String(),
+      },
+    );
+    final api = _FakeChatApi(messages: messages, hasMore: true);
+    await tester.pumpWidget(
+      MaterialApp(
+        home: ActivityChatScreen(
+          api: api,
+          activityId: 'activity-1',
+          enableRealtime: false,
         ),
-      );
-      await tester.pumpAndSettle();
-      expect(find.text('Single message'), findsOneWidget);
-    },
-  );
-
-  testWidgets(
-    'Chat screen handles pagination when more messages exist',
-    (tester) async {
-      final messages = List.generate(
-        4,
-        (i) => {
-          'messageId': 'page-msg-$i',
-          'activityId': 'activity-1',
-          'senderId': 'p$i',
-          'senderSupabaseUserId': 'u$i',
-          'senderName': 'User $i',
-          'content': 'Historical message $i',
-          'createdAt': DateTime.now()
-              .subtract(Duration(minutes: 20 - i))
-              .toIso8601String(),
-        },
-      );
-      final api = _FakeChatApi(messages: messages, hasMore: true);
-      await tester.pumpWidget(
-        MaterialApp(
-          home: ActivityChatScreen(
-            api: api,
-            activityId: 'activity-1',
-            enableRealtime: false,
-          ),
-        ),
-      );
-      await tester.pumpAndSettle();
-      expect(find.text('Historical message 0'), findsOneWidget);
-      expect(find.text('Historical message 3'), findsOneWidget);
-    },
-  );
+      ),
+    );
+    await tester.pumpAndSettle();
+    expect(find.text('Historical message 0'), findsOneWidget);
+    expect(find.text('Historical message 3'), findsOneWidget);
+  });
 }
 
 class _FakeApiClient extends ApiClient {
-  _FakeApiClient() : super('https://api.example.test');
+  _FakeApiClient({this.profile, this.userInterests})
+    : super('https://api.example.test');
 
+  final Map<String, dynamic>? profile;
+  final List<Map<String, dynamic>>? userInterests;
   final List<String> calls = [];
+  final Map<String, dynamic> savedBodies = {};
 
   @override
   Future<dynamic> request(String method, String path, {Object? body}) async {
+    calls.add(path);
     if (method == 'GET' && path == '/interests') {
       return {
         'interests': [
           {'interestId': 'cricket', 'name': 'Cricket', 'category': 'sports'},
+          {'interestId': 'football', 'name': 'Football', 'category': 'sports'},
         ],
       };
     }
-    calls.add(path);
+    if (method == 'GET' && path == '/users/me') {
+      return profile ??
+          {
+            'userId': 'usr-1',
+            'displayName': 'Alex Rivera',
+            'bio': 'Loves team sports and walks',
+          };
+    }
+    if (method == 'GET' &&
+        (path == '/interests/me' || path == '/users/me/interests')) {
+      return {
+        'count': (userInterests ?? []).length,
+        'interests':
+            userInterests ??
+            [
+              {
+                'interestId': 'cricket',
+                'name': 'Cricket',
+                'category': 'sports',
+              },
+            ],
+      };
+    }
+    if ((method == 'PUT' || method == 'PATCH') &&
+        body is Map<String, dynamic>) {
+      savedBodies[path] = body;
+      return body;
+    }
     return <String, dynamic>{};
   }
 }

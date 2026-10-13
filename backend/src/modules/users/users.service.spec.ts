@@ -74,4 +74,35 @@ describe('UsersService', () => {
       ['supa-123', 'Subodh Kumar', 'Updated bio', 'https://example.com/avatar.png'],
     );
   });
+
+  it('partially updates profile when displayName is not provided', async () => {
+    const existingRow = {
+      user_id: 'db-uuid-1',
+      supabase_user_id: 'supa-123',
+      display_name: 'Subodh',
+      bio: 'Old bio',
+      avatar_url: null,
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+    };
+    const updatedRow = {
+      ...existingRow,
+      bio: 'New bio only',
+    };
+
+    (mockDatabaseService.query as any)
+      .mockResolvedValueOnce({ rows: [existingRow] })
+      .mockResolvedValueOnce({ rows: [updatedRow] });
+
+    const updated = await service.upsertProfile('supa-123', {
+      bio: 'New bio only',
+    });
+
+    expect(updated.displayName).toBe('Subodh');
+    expect(updated.bio).toBe('New bio only');
+    expect(mockDatabaseService.query).toHaveBeenCalledWith(
+      expect.stringContaining('UPDATE profiles SET bio = COALESCE'),
+      ['supa-123', 'New bio only', null],
+    );
+  });
 });

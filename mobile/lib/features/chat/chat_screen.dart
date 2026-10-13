@@ -1,4 +1,5 @@
 import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:socket_io_client/socket_io_client.dart' as io;
 import 'package:supabase_flutter/supabase_flutter.dart';
@@ -250,7 +251,10 @@ class _ActivityChatScreenState extends State<ActivityChatScreen> {
       if (!mounted) return;
       final rawItems = (res['items'] as List<dynamic>?) ?? [];
       final parsed = rawItems
-          .map((m) => ChatMessageModel.fromJson(Map<String, dynamic>.from(m as Map)))
+          .map(
+            (m) =>
+                ChatMessageModel.fromJson(Map<String, dynamic>.from(m as Map)),
+          )
           .toList();
 
       final pagination = (res['pagination'] as Map<String, dynamic>?) ?? {};
@@ -294,7 +298,9 @@ class _ActivityChatScreenState extends State<ActivityChatScreen> {
       final rawItems = (res['items'] as List<dynamic>?) ?? [];
       bool hasNew = false;
       for (final raw in rawItems) {
-        final msg = ChatMessageModel.fromJson(Map<String, dynamic>.from(raw as Map));
+        final msg = ChatMessageModel.fromJson(
+          Map<String, dynamic>.from(raw as Map),
+        );
         if (_seenMessageIds.add(msg.messageId)) {
           _messages.add(msg);
           hasNew = true;
@@ -322,7 +328,10 @@ class _ActivityChatScreenState extends State<ActivityChatScreen> {
       if (!mounted) return;
       final rawItems = (res['items'] as List<dynamic>?) ?? [];
       final parsed = rawItems
-          .map((m) => ChatMessageModel.fromJson(Map<String, dynamic>.from(m as Map)))
+          .map(
+            (m) =>
+                ChatMessageModel.fromJson(Map<String, dynamic>.from(m as Map)),
+          )
           .toList();
 
       final pagination = (res['pagination'] as Map<String, dynamic>?) ?? {};
@@ -365,7 +374,9 @@ class _ActivityChatScreenState extends State<ActivityChatScreen> {
       );
 
       if (res is Map) {
-        final message = ChatMessageModel.fromJson(Map<String, dynamic>.from(res));
+        final message = ChatMessageModel.fromJson(
+          Map<String, dynamic>.from(res),
+        );
         if (_seenMessageIds.add(message.messageId)) {
           if (mounted) {
             setState(() {
@@ -391,9 +402,8 @@ class _ActivityChatScreenState extends State<ActivityChatScreen> {
           ? 'Too many messages. Please slow down.'
           : 'Failed to send message. Please retry.';
 
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(errorText)),
-      );
+      ScaffoldMessenger.of(context)
+          .showSnackBar(SnackBar(content: Text(errorText)));
       if (isForbidden) {
         setState(() {
           _unauthorized = true;
@@ -440,8 +450,7 @@ class _ActivityChatScreenState extends State<ActivityChatScreen> {
                 ),
                 const SizedBox(height: 8),
                 Text(
-                  _error ??
-                      'Only the activity host and approved participants can access this chat.',
+                  _error ?? 'Only the activity host and approved participants can access this chat.',
                   textAlign: TextAlign.center,
                 ),
                 const SizedBox(height: 24),
@@ -482,8 +491,7 @@ class _ActivityChatScreenState extends State<ActivityChatScreen> {
       body: SafeArea(
         child: Column(
           children: [
-            if (_loadingMore)
-              const LinearProgressIndicator(minHeight: 2),
+            if (_loadingMore) const LinearProgressIndicator(minHeight: 2),
             Expanded(
               child: _loading
                   ? const Center(child: CircularProgressIndicator())
@@ -569,7 +577,12 @@ class _ActivityChatScreenState extends State<ActivityChatScreen> {
                       minLines: 1,
                       maxLines: 4,
                       maxLength: 2000,
-                      buildCounter: (_, {required currentLength, maxLength, required isFocused}) => null,
+                      buildCounter: (
+                        _, {
+                        required currentLength,
+                        maxLength,
+                        required isFocused,
+                      }) => null,
                       decoration: const InputDecoration(
                         hintText: 'Type a message…',
                         border: OutlineInputBorder(
@@ -631,8 +644,9 @@ class _MessageBubble extends StatelessWidget {
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 4),
       child: Column(
-        crossAxisAlignment:
-            isMe ? CrossAxisAlignment.end : CrossAxisAlignment.start,
+        crossAxisAlignment: isMe
+            ? CrossAxisAlignment.end
+            : CrossAxisAlignment.start,
         children: [
           if (!isMe)
             Padding(

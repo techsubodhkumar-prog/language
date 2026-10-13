@@ -13,6 +13,11 @@ import { MembershipsService } from '../src/modules/memberships/memberships.servi
 import { ChatController } from '../src/modules/chat/chat.controller.js';
 import { ChatService } from '../src/modules/chat/chat.service.js';
 import { ChatGateway } from '../src/modules/chat/chat.gateway.js';
+import { AuthController } from '../src/modules/auth/auth.controller.js';
+import { UsersController } from '../src/modules/users/users.controller.js';
+import { UsersService } from '../src/modules/users/users.service.js';
+import { InterestsController } from '../src/modules/interests/interests.controller.js';
+import { InterestsService } from '../src/modules/interests/interests.service.js';
 
 describe('Activity Discovery API (e2e)', () => {
   let app: INestApplication<App>;
@@ -253,6 +258,328 @@ describe('Activity Discovery API (e2e)', () => {
         verifiedUser,
         expect.objectContaining({ limit: 20, offset: 0 }),
       );
+    } finally {
+      await testApp.close();
+    }
+  });
+
+  it('/api/v1/auth/me returns verified identity when authenticated', async () => {
+    const verifiedUser: AuthenticatedUser = {
+      userId: 'auth-test-user-uuid',
+      email: 'tester@example.com',
+      role: 'authenticated',
+    };
+
+    const moduleFixture = await Test.createTestingModule({
+      controllers: [AuthController],
+    })
+      .overrideGuard(AuthGuard)
+      .useValue({
+        canActivate: (context: import('@nestjs/common').ExecutionContext) => {
+          context
+            .switchToHttp()
+            .getRequest<{ user?: AuthenticatedUser }>().user = verifiedUser;
+          return true;
+        },
+      })
+      .compile();
+
+    const testApp = moduleFixture.createNestApplication();
+    testApp.setGlobalPrefix('api/v1');
+    await testApp.init();
+
+    try {
+      const res = await request(testApp.getHttpServer())
+        .get('/api/v1/auth/me')
+        .expect(200);
+
+      expect(res.body.authenticated).toBe(true);
+      expect(res.body.user.userId).toBe('auth-test-user-uuid');
+      expect(res.body.user.email).toBe('tester@example.com');
+    } finally {
+      await testApp.close();
+    }
+  });
+
+  it('enforces profile ownership and rejects invalid display names or body ID spoofing', async () => {
+    const verifiedUser: AuthenticatedUser = { userId: 'legit-user-123' };
+    const upsertProfile = vi.fn().mockResolvedValue({
+      userId: 'db-profile-uuid',
+      supabaseUserId: 'legit-user-123',
+      displayName: 'Legit User',
+      bio: null,
+      avatarUrl: null,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    });
+    const getProfile = vi.fn().mockResolvedValue({
+      userId: 'db-profile-uuid',
+      supabaseUserId: 'legit-user-123',
+      displayName: 'Legit User',
+      bio: null,
+      avatarUrl: null,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    });
+
+    const moduleFixture = await Test.createTestingModule({
+      controllers: [UsersController],
+      providers: [
+        {
+          provide: UsersService,
+          useValue: { upsertProfile, getProfile },
+        },
+        {
+          provide: InterestsService,
+          useValue: {
+            getUserInterests: vi.fn(),
+            replaceUserInterests: vi.fn(),
+          },
+        },
+      ],
+    })
+      .overrideGuard(AuthGuard)
+      .useValue({
+        canActivate: (context: import('@nestjs/common').ExecutionContext) => {
+          context
+            .switchToHttp()
+            .getRequest<{ user?: AuthenticatedUser }>().user = verifiedUser;
+          return true;
+        },
+      })
+      .compile();
+
+    const testApp = moduleFixture.createNestApplication();
+    testApp.setGlobalPrefix('api/v1');
+    testApp.useGlobalFilters(new HttpExceptionFilter());
+    await testApp.init();
+
+    try {
+      // 1. GET /api/v1/users/me uses token subject
+      await request(testApp.getHttpServer())
+        .get('/api/v1/users/me')
+        .expect(200);
+      expect(getProfile).toHaveBeenCalledWith('legit-user-123');
+
+      // 2. PUT /api/v1/users/me binds strictly to token subject
+      await request(testApp.getHttpServer())
+        .put('/api/v1/users/me')
+        .send({ displayName: 'Legit User' })
+        .expect(200);
+      expect(upsertProfile).toHaveBeenCalledWith(
+        'legit-user-123',
+        expect.objectContaining({ displayName: 'Legit User' }),
+      );
+
+      // 3. Reject invalid display name (< 2 chars or whitespace only)
+      await request(testApp.getHttpServer())
+        .put('/api/v1/users/me')
+        .send({ displayName: 'a' })
+        .expect(400);
+
+      // 4. Reject unknown fields (forbidNonWhitelisted) preventing ID spoofing
+      await request(testApp.getHttpServer())
+        .put('/api/v1/users/me')
+        .send({ displayName: 'Legit User', userId: 'attacker-id' })
+        .expect(400);
+    } finally {
+      await testApp.close();
+    }
+  });
+
+  it('lists available interests and allows managing user interests', async () => {
+    const verifiedUser: AuthenticatedUser = { userId: 'interests-user' };
+    const mockInterests = [
+      { interestId: 'cricket', name: 'Cricket', category: 'sports' },
+      { interestId: 'football', name: 'Football', category: 'sports' },
+    ];
+
+    const listAvailableInterests = vi.fn().mockResolvedValue(mockInterests);
+    const getUserInterests = vi.fn().mockResolvedValue([mockInterests[0]]);
+    const replaceUserInterests = vi.fn().mockResolvedValue(mockInterests);
+
+    const moduleFixture = await Test.createTestingModule({
+      controllers: [InterestsController, UsersController],
+      providers: [
+        {
+          provide: InterestsService,
+          useValue: {
+            listAvailableInterests,
+            getUserInterests,
+            replaceUserInterests,
+          },
+        },
+        {
+          provide: UsersService,
+          useValue: {
+            getProfile: vi.fn(),
+            upsertProfile: vi.fn(),
+          },
+        },
+      ],
+    })
+      .overrideGuard(AuthGuard)
+      .useValue({
+        canActivate: (context: import('@nestjs/common').ExecutionContext) => {
+          context
+            .switchToHttp()
+            .getRequest<{ user?: AuthenticatedUser }>().user = verifiedUser;
+          return true;
+        },
+      })
+      .compile();
+
+    const testApp = moduleFixture.createNestApplication();
+    testApp.setGlobalPrefix('api/v1');
+    await testApp.init();
+
+    try {
+      // 1. GET /api/v1/interests (public)
+      const listRes = await request(testApp.getHttpServer())
+        .get('/api/v1/interests')
+        .expect(200);
+      expect(listRes.body.count).toBe(2);
+      expect(listRes.body.interests).toHaveLength(2);
+
+      // 2. GET /api/v1/users/me/interests
+      const userInterestsRes = await request(testApp.getHttpServer())
+        .get('/api/v1/users/me/interests')
+        .expect(200);
+      expect(userInterestsRes.body.count).toBe(1);
+      expect(getUserInterests).toHaveBeenCalledWith('interests-user');
+
+      // 3. PUT /api/v1/users/me/interests
+      const putRes = await request(testApp.getHttpServer())
+        .put('/api/v1/users/me/interests')
+        .send({ interestIds: ['cricket', 'football'] })
+        .expect(200);
+      expect(putRes.body.count).toBe(2);
+      expect(replaceUserInterests).toHaveBeenCalledWith('interests-user', [
+        'cricket',
+        'football',
+      ]);
+    } finally {
+      await testApp.close();
+    }
+  });
+
+  it('supports activity discovery, details lookup, editing, and cancellation endpoints', async () => {
+    const verifiedUser: AuthenticatedUser = { userId: 'host-user-uuid' };
+    const mockActivity = {
+      activityId: '00000000-0000-4000-8000-000000000001',
+      title: 'Weekend Trekking',
+      description: 'Mountain trail',
+      categoryId: 'travel_trips',
+      category: 'Weekend Trips & Trekking',
+      locationName: 'Base Camp',
+      locationDescription: 'Trailhead',
+      startsAt: new Date(Date.now() + 86400000).toISOString(),
+      endsAt: null,
+      minParticipants: 1,
+      maxParticipants: 8,
+      participantCount: 1,
+      remainingPlaces: 7,
+      estimatedCost: 200,
+      visibility: 'public',
+      joinPolicy: 'approval',
+      status: 'scheduled',
+      hostName: 'Subodh',
+      isHost: true,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    };
+
+    const list = vi.fn().mockResolvedValue({
+      items: [mockActivity],
+      pagination: { limit: 20, offset: 0, total: 1 },
+    });
+    const getById = vi.fn().mockResolvedValue(mockActivity);
+    const update = vi.fn().mockResolvedValue({
+      ...mockActivity,
+      title: 'Updated Weekend Trekking',
+    });
+    const cancel = vi.fn().mockResolvedValue({
+      activityId: mockActivity.activityId,
+      status: 'cancelled',
+    });
+
+    const moduleFixture = await Test.createTestingModule({
+      controllers: [ActivitiesController],
+      providers: [
+        {
+          provide: ActivitiesService,
+          useValue: { list, getById, update, cancel },
+        },
+      ],
+    })
+      .overrideGuard(AuthGuard)
+      .useValue({
+        canActivate: (context: import('@nestjs/common').ExecutionContext) => {
+          context
+            .switchToHttp()
+            .getRequest<{ user?: AuthenticatedUser }>().user = verifiedUser;
+          return true;
+        },
+      })
+      .compile();
+
+    const testApp = moduleFixture.createNestApplication();
+    testApp.setGlobalPrefix('api/v1');
+    await testApp.init();
+
+    try {
+      // 1. GET /api/v1/activities with search, category, sort, and pagination
+      const listRes = await request(testApp.getHttpServer())
+        .get(
+          '/api/v1/activities?search=trekking&category=travel_trips&sort=soonest&limit=10&page=1',
+        )
+        .expect(200);
+      expect(listRes.body.items).toHaveLength(1);
+      expect(listRes.body.pagination.total).toBe(1);
+      expect(list).toHaveBeenCalledWith(
+        expect.objectContaining({
+          search: 'trekking',
+          category: 'travel_trips',
+          sort: 'soonest',
+          limit: 10,
+          page: 1,
+        }),
+        verifiedUser,
+      );
+
+      // 2. GET /api/v1/activities/:id
+      const detailRes = await request(testApp.getHttpServer())
+        .get('/api/v1/activities/00000000-0000-4000-8000-000000000001')
+        .expect(200);
+      expect(detailRes.body.activityId).toBe(
+        '00000000-0000-4000-8000-000000000001',
+      );
+      expect(detailRes.body.maxParticipants).toBe(8);
+      expect(detailRes.body.isHost).toBe(true);
+
+      // 3. PATCH /api/v1/activities/:id
+      const updateRes = await request(testApp.getHttpServer())
+        .patch('/api/v1/activities/00000000-0000-4000-8000-000000000001')
+        .send({ title: 'Updated Weekend Trekking' })
+        .expect(200);
+      expect(updateRes.body.title).toBe('Updated Weekend Trekking');
+      expect(update).toHaveBeenCalledWith(
+        '00000000-0000-4000-8000-000000000001',
+        verifiedUser,
+        expect.objectContaining({ title: 'Updated Weekend Trekking' }),
+      );
+
+      // 4. POST /api/v1/activities/:id/cancel
+      const cancelPostRes = await request(testApp.getHttpServer())
+        .post('/api/v1/activities/00000000-0000-4000-8000-000000000001/cancel')
+        .expect(201);
+      expect(cancelPostRes.body.status).toBe('cancelled');
+
+      // 5. PATCH /api/v1/activities/:id/cancel
+      const cancelPatchRes = await request(testApp.getHttpServer())
+        .patch('/api/v1/activities/00000000-0000-4000-8000-000000000001/cancel')
+        .expect(200);
+      expect(cancelPatchRes.body.status).toBe('cancelled');
     } finally {
       await testApp.close();
     }

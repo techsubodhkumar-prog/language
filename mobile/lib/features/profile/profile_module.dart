@@ -1,5 +1,6 @@
-/// Profile feature module placeholder for Milestone 0 foundation.
-/// Will implement onboarding, user profile editing, and interest selection in Milestone 1.
+export 'profile_screen.dart';
+
+/// Profile feature module for user profile editing and interest management.
 class ProfileModule {
   static const String moduleName = 'profile';
 }
