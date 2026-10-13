@@ -1,8 +1,11 @@
 import { Module } from '@nestjs/common';
+import { SupabaseTokenVerifierService } from './supabase-token-verifier.service.js';
+import { AuthGuard } from './auth.guard.js';
+import { AuthController } from './auth.controller.js';
 
-/**
- * Authentication module placeholder for Milestone 0 foundation.
- * Planned for Milestone 1: Supabase Auth integration, session validation, JWT guard.
- */
-@Module({})
+@Module({
+  controllers: [AuthController],
+  providers: [SupabaseTokenVerifierService, AuthGuard],
+  exports: [SupabaseTokenVerifierService, AuthGuard],
+})
 export class AuthModule {}

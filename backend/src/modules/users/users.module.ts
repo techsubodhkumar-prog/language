@@ -1,8 +1,12 @@
 import { Module } from '@nestjs/common';
+import { AuthModule } from '../auth/auth.module.js';
+import { UsersController } from './users.controller.js';
+import { UsersService } from './users.service.js';
 
-/**
- * Users/Profile module placeholder for Milestone 0 foundation.
- * Planned for Milestone 1: User profiles, display name, bio, avatar, age eligibility, /me endpoint.
- */
-@Module({})
+@Module({
+  imports: [AuthModule],
+  controllers: [UsersController],
+  providers: [UsersService],
+  exports: [UsersService],
+})
 export class UsersModule {}

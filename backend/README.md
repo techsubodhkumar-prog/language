@@ -31,6 +31,24 @@
 $ npm install
 ```
 
+For Milestone 1, set `DATABASE_URL` and `SUPABASE_URL` plus `SUPABASE_ANON_KEY` in `.env`.
+The API verifies Supabase access tokens with Supabase Auth; an optional legacy HS256
+`SUPABASE_JWT_SECRET` can be configured for local cryptographic verification. The Flutter
+app only receives the Supabase publishable/anon key and never a service-role key.
+
+Apply the checked-in PostgreSQL migration and seed the curated interest list with:
+
+```bash
+npm run db:migrate
+npm run db:seed
+```
+
+The mobile app reads configuration from Dart defines, for example:
+
+```bash
+flutter run --dart-define=SUPABASE_URL=https://your-project.supabase.co --dart-define=SUPABASE_ANON_KEY=your-publishable-key --dart-define=API_BASE_URL=http://10.0.2.2:3000/api/v1
+```
+
 ## Compile and run the project
 
 ```bash

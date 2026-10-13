@@ -1,0 +1,89 @@
+import { Injectable, Logger, OnModuleDestroy } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
+import pg, { type PoolClient, type QueryResult, type QueryResultRow } from 'pg';
+
+const { Pool } = pg;
+
+@Injectable()
+export class DatabaseService implements OnModuleDestroy {
+  private readonly logger = new Logger(DatabaseService.name);
+  private pool: pg.Pool | null = null;
+  private isConnected = false;
+
+  constructor(private readonly configService: ConfigService) {
+    const databaseUrl = this.configService.get<string>('DATABASE_URL');
+    if (databaseUrl && !databaseUrl.includes('placeholder')) {
+      this.pool = new Pool({
+        connectionString: databaseUrl,
+        max: 10,
+        idleTimeoutMillis: 30000,
+        connectionTimeoutMillis: 5000,
+      });
+
+      this.pool.on('error', (err) => {
+        this.logger.error(`Unexpected PostgreSQL client error: ${err.message}`);
+      });
+    } else {
+      this.logger.warn(
+        'DATABASE_URL not configured or contains placeholder. Database operations will require active configuration.',
+      );
+    }
+  }
+
+  async isHealthy(): Promise<boolean> {
+    if (!this.pool) return false;
+    try {
+      const res = await this.pool.query('SELECT 1 AS alive');
+      this.isConnected = res.rows.length > 0;
+      return this.isConnected;
+    } catch {
+      this.isConnected = false;
+      return false;
+    }
+  }
+
+  getPool(): pg.Pool | null {
+    return this.pool;
+  }
+
+  async query<T extends QueryResultRow = any>(
+    text: string,
+    params: unknown[] = [],
+  ): Promise<QueryResult<T>> {
+    if (!this.pool) {
+      throw new Error(
+        'Database connection unavailable: DATABASE_URL is not configured with an active PostgreSQL instance.',
+      );
+    }
+    return this.pool.query<T>(text, params);
+  }
+
+  async withTransaction<T>(
+    callback: (client: PoolClient) => Promise<T>,
+  ): Promise<T> {
+    if (!this.pool) {
+      throw new Error(
+        'Database connection unavailable: DATABASE_URL is not configured with an active PostgreSQL instance.',
+      );
+    }
+    const client = await this.pool.connect();
+    try {
+      await client.query('BEGIN');
+      const result = await callback(client);
+      await client.query('COMMIT');
+      return result;
+    } catch (error) {
+      await client.query('ROLLBACK');
+      throw error;
+    } finally {
+      client.release();
+    }
+  }
+
+  async onModuleDestroy() {
+    if (this.pool) {
+      await this.pool.end();
+      this.logger.log('PostgreSQL connection pool closed');
+    }
+  }
+}

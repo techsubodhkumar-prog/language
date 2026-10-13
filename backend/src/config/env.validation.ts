@@ -5,6 +5,7 @@ export interface EnvironmentVariables {
   DATABASE_URL?: string;
   SUPABASE_URL?: string;
   SUPABASE_ANON_KEY?: string;
+  SUPABASE_JWT_SECRET?: string;
 }
 
 export function validateEnv(
@@ -37,5 +38,6 @@ export function validateEnv(
     DATABASE_URL: config.DATABASE_URL as string | undefined,
     SUPABASE_URL: config.SUPABASE_URL as string | undefined,
     SUPABASE_ANON_KEY: config.SUPABASE_ANON_KEY as string | undefined,
+    SUPABASE_JWT_SECRET: config.SUPABASE_JWT_SECRET as string | undefined,
   };
 }

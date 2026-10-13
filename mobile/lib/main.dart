@@ -1,23 +1,101 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
 import 'core/constants/app_constants.dart';
-import 'core/presentation/app_shell.dart';
 import 'core/theme/app_theme.dart';
+import 'features/auth/auth_flow.dart';
 
-void main() {
-  runApp(const ActivityDiscoveryApp());
+const _supabaseUrl = String.fromEnvironment('SUPABASE_URL');
+const _supabaseAnonKey = String.fromEnvironment('SUPABASE_ANON_KEY');
+const _apiBaseUrl = String.fromEnvironment(
+  'API_BASE_URL',
+  defaultValue: 'http://localhost:3000/api/v1',
+);
+
+Future<void> main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+  final configured =
+      _supabaseUrl.startsWith('https://') && _supabaseAnonKey.isNotEmpty;
+  if (configured) {
+    await Supabase.initialize(
+      url: _supabaseUrl,
+      publishableKey: _supabaseAnonKey,
+      authOptions: FlutterAuthClientOptions(
+        localStorage: _SecureSessionStorage(),
+      ),
+    );
+  }
+  runApp(ActivityDiscoveryApp(configured: configured, apiBaseUrl: _apiBaseUrl));
+}
+
+class _SecureSessionStorage extends LocalStorage {
+  static const _sessionKey = 'activity_discovery_supabase_session';
+  static const _storage = FlutterSecureStorage();
+
+  @override
+  Future<void> initialize() async {}
+
+  @override
+  Future<bool> hasAccessToken() async => await accessToken() != null;
+
+  @override
+  Future<String?> accessToken() => _storage.read(key: _sessionKey);
+
+  @override
+  Future<void> removePersistedSession() => _storage.delete(key: _sessionKey);
+
+  @override
+  Future<void> persistSession(String persistSessionString) =>
+      _storage.write(key: _sessionKey, value: persistSessionString);
 }
 
 class ActivityDiscoveryApp extends StatelessWidget {
-  const ActivityDiscoveryApp({super.key});
+  const ActivityDiscoveryApp({
+    super.key,
+    this.configured = false,
+    this.apiBaseUrl = _apiBaseUrl,
+  });
+
+  final bool configured;
+  final String apiBaseUrl;
 
   @override
-  Widget build(BuildContext context) {
-    return MaterialApp(
-      title: AppConstants.appName,
-      debugShowCheckedModeBanner: false,
-      theme: AppTheme.lightTheme,
-      home: const AppShell(),
-    );
-  }
+  Widget build(BuildContext context) => MaterialApp(
+    title: AppConstants.appName,
+    debugShowCheckedModeBanner: false,
+    theme: AppTheme.lightTheme,
+    home: configured
+        ? AuthFlow(apiBaseUrl: apiBaseUrl)
+        : const _ConfigurationScreen(),
+  );
+}
+
+class _ConfigurationScreen extends StatelessWidget {
+  const _ConfigurationScreen();
+
+  @override
+  Widget build(BuildContext context) => Scaffold(
+    body: Center(
+      child: Padding(
+        padding: const EdgeInsets.all(24),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: const [
+            Icon(Icons.groups_outlined, size: 56),
+            SizedBox(height: 16),
+            Text(
+              AppConstants.appName,
+              style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
+            ),
+            SizedBox(height: 12),
+            Text(
+              'Set SUPABASE_URL and SUPABASE_ANON_KEY with --dart-define to connect. The anon key is safe for client use; never use a service-role key here.',
+              textAlign: TextAlign.center,
+            ),
+          ],
+        ),
+      ),
+    ),
+  );
 }

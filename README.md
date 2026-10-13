@@ -184,7 +184,7 @@ Run from the `mobile/` directory:
   - Flutter application shell, theme, and feature-first module structure.
   - NestJS modular monolith with `/api/v1/health` endpoint, global error filter, and environment validation.
   - Test suites, static analysis, and CI-ready configurations verified.
-- [ ] **Milestone 1: Identity & Onboarding** *(Supabase Auth, profile management, interest taxonomy)*
+- [x] **Milestone 1: Identity & Onboarding** *(implemented; configure Supabase and PostgreSQL for live use)*
 - [ ] **Milestone 2: Activity Core & Discovery** *(Create activity, Explore feed, PostGIS spatial search)*
 - [ ] **Milestone 3: Join Workflow & Concurrency Control** *(Atomic capacity locking, host approvals)*
 - [ ] **Milestone 4: Real-Time Chat & Notifications** *(Socket.IO rooms, FCM push notifications)*
