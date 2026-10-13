@@ -1,0 +1,595 @@
+SOFTWARE REQUIREMENTS
+SPECIFICATION
+Interest-Based Activity Discovery, Matching &
+Group Coordination Platform
+Version 1.0 | 12 October 2026
+Prepared for product planning, design, engineering, and QA
+One platform to help people discover activities, find compatible participants,
+organize plans, and join groups for everyday life.
+
+ACTIVITY DISCOVERY PLATFORM | SRS v1.0
+Document Control
+Field Value
+Document Software Requirements Specification (SRS)
+Version 1.0
+Status Initial baseline for review
+Product category Social activity discovery, matching, and coordination
+Primary client Mobile application; Android first, iOS-ready architecture
+Proposed client technology Flutter / Dart
+Audience Product owner, UI/UX designer, developers, QA, operations, and security reviewers
+Revision History
+Version Date Description
+1.0 12 October 2026 Initial requirements baseline based on the product concept.
+1. Introduction
+1.1 Purpose
+This document defines the functional and non-functional requirements for a mobile platform that helps people find others
+for activities they want to do. Users can state their interests, discover relevant activities, create a plan, specify time and
+place, invite or request participants, communicate with accepted participants, and manage the activity through completion.
+1.2 Product Vision
+Make it easy for a person to turn “I want to do this” into “I found the right people and we made a plan.” The platform
+supports solo-to-group discovery, filling open spots in an existing group, creating new activities, and joining public or
+private activities.
+1.3 Intended Audience
+l Product owner and stakeholders defining scope and priorities.
+l UI/UX designers creating user flows, wireframes, and prototypes.
+l Flutter developers building the mobile application.
+l Backend developers implementing APIs, matching, chat, notifications, and data storage.
+l QA engineers verifying requirements and acceptance criteria.
+l Moderation, customer support, and operations teams managing safety and reports.
+Page 2
+
+ACTIVITY DISCOVERY PLATFORM | SRS v1.0
+1.4 Definitions
+Term Definition
+Activity A planned event or action, such as cricket, tea, shopping, a trip, or a study session.
+Host A user who creates and manages an activity.
+Participant A user who requests to join or is accepted into an activity.
+Domain/category A user interest area, such as sports, food, travel, games, hobbies, or dating/social.
+Matching Filtering and ranking activities or users by interests, time, distance, eligibility, and preferences.
+Open spots The number of participants still permitted for an activity.
+Poll A question with selectable options used to coordinate group decisions.
+Private activity An activity visible only to invited users or approved members.
+MVP Minimum Viable Product: the smallest safe and useful initial release.
+2. Overall Description
+2.1 Product Perspective
+The product is a location-aware social coordination platform, not merely a feed or chat application. Its core workflow is
+activity-first: users discover or create an activity, matching people are notified or can find it in discovery, interested users
+request to join, the host approves or the system admits them according to the activity’s join policy, and participants
+coordinate safely.
+2.2 User Classes
+User class Description Main permissions
+Guest Not authenticated View introductory screens and sign in/register; no posting or messaging.
+Registered user Person seeking or organizing activities Manage profile/interests, discover activities, request/join, create
+activities, chat where permitted, report/block.
+Host Registered user who created an activity Edit/cancel activity, review requests, manage participants, communicate
+with participants, mark completion.
+Moderator/support Authorized operational staff Review reports, investigate abuse, remove content, restrict accounts,
+respond to support requests.
+Administrator Trusted platform operator Manage categories, policies, roles, configuration, audit logs, and
+platform metrics.
+2.3 Supported Activity Categories
+l Sports and fitness: cricket, football, badminton, gym, running, cycling.
+l Food and casual outings: tea/coffee, restaurants, street food, brunch.
+l Travel and outdoors: trips, trekking, camping, sightseeing, road trips.
+l Entertainment: movies, concerts, events, bowling, amusement parks.
+l Shopping and errands: mall visits, fashion shopping, markets, shared errands.
+l Games: board games, multiplayer video games, LAN sessions, esports.
+l Learning and careers: study groups, projects, hackathons, workshops, networking.
+l Creative hobbies: photography, dance, music, filmmaking, art, book clubs.
+l Social and relationships: making friends, group dates, double dates, singles' events.
+l Family, community, volunteering, pets, and other user-suggested categories.
+Categories must be configurable from the backend. Users may suggest a new category, but platform administrators or a
+controlled taxonomy process should approve it to prevent duplicates and unsafe categories.
+Page 3
+
+ACTIVITY DISCOVERY PLATFORM | SRS v1.0
+2.4 Operating Environment
+l Mobile application built with Flutter/Dart, initially targeting Android and designed to support iOS.
+l Backend exposed through authenticated HTTPS APIs.
+l Database for accounts, interests, activities, memberships, messages, reports, and notification preferences.
+l Push notifications for requests, approvals, activity changes, chat, reminders, and safety alerts.
+l Optional map/geocoding provider for selecting a public meeting point and estimating distance.
+l Administrative web console for moderation and category/configuration management.
+2.5 Assumptions and Constraints
+l A network connection is required for sign-in, discovery, joining, messaging, and synchronization.
+l Location access is optional; users can manually select an area or enter a venue.
+l Exact live location is not shared with other users by default.
+l The platform must define minimum age, dating eligibility, identity verification levels, and region-specific legal obligations
+before launch.
+l Activity availability depends on users in the area; low-density locations may have fewer matches.
+l Third-party services for maps, SMS/email, push delivery, and identity verification may impose cost and usage limits.
+3. Scope and Release Strategy
+3.1 MVP Scope
+l Registration, login, logout, password reset, basic profile, and account deletion request.
+l Interest onboarding with selectable categories and subcategories; users can edit preferences later.
+l Home feed and discovery filters by category, date/time, approximate distance, group size, and open spots.
+l Create, view, edit, cancel, and report an activity.
+l Activity details including purpose, time, meeting place/venue, capacity, estimated cost, rules, and join policy.
+l Request to join, approve/reject requests, leave activity, and prevent over-capacity.
+l Activity participant list and activity-scoped group chat after joining/approval.
+l Push/in-app notifications for requests, decisions, cancellations, changes, and reminders.
+l Block/report users and activities; moderator review tools.
+l Basic admin controls for categories, content reports, and account restrictions.
+3.2 Post-MVP Candidates
+l Personalized recommendation ranking and compatibility scoring.
+l Polls for selecting times, venues, budgets, and activity options.
+l Recurring activities, clubs, communities, teams, and public event series.
+l Calendar integration, waitlists, QR check-in, attendance, and post-activity reviews.
+l Optional verification badges, enhanced trust signals, and fraud prevention.
+l Payments, ticketing, deposits, refunds, and paid event support only after legal/security review.
+l Web client, advanced analytics, multilingual support, and AI-assisted recommendations.
+3.3 Out of Scope for Initial MVP
+l Guaranteed identity or background verification for every user.
+Page 4
+
+ACTIVITY DISCOVERY PLATFORM | SRS v1.0
+l Emergency-response services or a guarantee that an in-person meeting is safe.
+l Real-money betting or gambling.
+l Automatic disclosure of a user's exact live location to strangers.
+l Unmoderated anonymous direct messaging to arbitrary users.
+l A promise that every activity will find enough participants.
+4. User Journey and Core Workflows
+4.1 First-Time User
+1 User opens the app and sees introductory/onboarding screens.
+2 User registers or signs in and accepts the terms, privacy notice, and community/safety rules.
+3 User creates a profile with display name, profile image (optional), age eligibility data as required, and a short bio.
+4 User selects interests and sub-interests, for example Sports fi Cricket; Food fi Tea/Coffee; Travel fi Weekend trips.
+5 User sets discovery preferences such as preferred activity radius, notification preferences, and optional availability.
+6 App opens the personalized Home/Discover screen; the user can change interests and privacy settings at any time.
+4.2 Example: Organize a Cricket Match
+1 Host selects Create Activity fi Sports fi Cricket.
+2 Host enters date, start/end time, venue or meeting point, player count, skill level (optional), cost per person (optional),
+and rules.
+3 Host chooses visibility (public or invite-only), join policy (approval required or auto-join), and target
+audience/preferences.
+4 System validates fields and publishes the activity.
+5 Eligible users who follow cricket and meet the discovery criteria can see the activity; matching notifications are sent only
+according to user preferences and rate limits.
+6 Interested users open details and tap Request to Join or Join.
+7 Host reviews requests when approval is required. System updates available spots atomically to prevent overbooking.
+8 Accepted participants receive confirmation and can use the activity group chat.
+9 System sends configurable reminders and notifies participants of schedule or venue changes.
+10 Host marks the activity completed or cancelled; participants may optionally provide feedback or report a problem.
+4.3 Example: Invite People for Tea/Coffee
+1 User selects Create Activity fi Food & Drink fi Tea/Coffee.
+2 User chooses cafe or public meeting point, date/time, participant limit, estimated spend, and whether the plan is
+one-to-one or a small group.
+3 The activity is shown to eligible users who opted into relevant social/food activities and match the visibility and
+preference rules.
+4 Interested users request to join; the host can review profile basics and accept or decline.
+5 Contact details remain private unless a user deliberately shares them; communication occurs through the app after the
+relevant join/approval condition.
+6 Both sides can cancel, block, or report. Safety reminders encourage meeting in public and telling a trusted person
+where appropriate.
+Page 5
+
+ACTIVITY DISCOVERY PLATFORM | SRS v1.0
+4.4 General Activity Lifecycle
+State Meaning Allowed transitions
+Draft Created but not published Published or Deleted
+Published / Open Visible and accepting participants Full, In progress, Cancelled, Expired
+Full Capacity reached; new requests may enter waitlist if enabled Open if a spot opens, In progress, Cancelled
+In progress Activity start time has arrived or host starts it Completed, Cancelled
+Completed Activity finished Closed; feedback/reporting may remain available
+Cancelled Host or admin cancelled activity Terminal except audit/history
+Expired Activity time passed without completion action Closed or host-confirmed completion, according to
+policy
+5. Functional Requirements
+Priority legend: P0 = required for MVP; P1 = important next release; P2 = future enhancement. Each requirement has a
+stable identifier for development and QA traceability.
+ID Area Priority Requirement
+FR-001 Authentication P0 The system shall allow a user to register using an approved authentication method
+(email/phone or supported identity provider).
+FR-002 Authentication P0 The system shall authenticate users and provide logout, session expiry, and
+password/account recovery where applicable.
+FR-003 Authentication P0 The system shall require acceptance of current Terms of Service, Privacy Notice, and
+Community Guidelines before participation features are enabled.
+FR-004 Profile P0 The system shall allow users to create and edit a profile with display name, bio, profile image,
+interests, and relevant safety/privacy settings.
+FR-005 Profile P0 The system shall let users deactivate or request deletion of their account and explain the
+data-retention/deletion process.
+FR-006 Interest onboarding P0 The system shall present a searchable hierarchy of activity categories and subcategories
+during onboarding.
+FR-007 Interest onboarding P0 The system shall let users select multiple interests, remove interests, and update interests
+after onboarding.
+FR-008 Discovery P0 The system shall display a feed of relevant activities and support search by
+keyword/category.
+FR-009 Discovery P0 The system shall support filtering by date/time, approximate location or area, distance/radius
+when available, open spots, activity type, and budget when supplied.
+FR-010 Discovery P1 The system should rank activities using selected interests, proximity, time fit, capacity,
+freshness, and user preference while avoiding discriminatory or opaque sensitive-attribute
+inference.
+FR-011 Activity creation P0 The system shall allow an authenticated user to create an activity with title, category,
+description, date/time, location/venue, minimum/maximum participants, visibility, join policy,
+and host.
+FR-012 Activity creation P0 The system shall support optional fields such as cost estimate, skill level, age eligibility,
+equipment needed, rules, cover image, and accessibility notes.
+FR-013 Activity creation P0 The system shall validate required fields, date/time consistency, participant limits, category,
+and location before publication.
+FR-014 Activity management P0 The host shall be able to edit or cancel an activity and the system shall notify affected
+participants of material changes.
+FR-015 Activity management P0 The system shall show activity status, capacity, accepted participants, pending requests, and
+open spots to authorized users.
+FR-016 Matching/targeting P0 The system shall make published activities discoverable to users matching category/interests
+and the activity's visibility and eligibility rules.
+FR-017 Matching/targeting P0 The system shall respect user notification preferences and shall not send an unsolicited
+message to every user merely because they share a broad interest.
+Page 6
+
+ACTIVITY DISCOVERY PLATFORM | SRS v1.0
+ID Area Priority Requirement
+FR-018 Join flow P0 A user shall be able to join immediately when auto-join is enabled and capacity/eligibility
+checks pass, or request to join when host approval is required.
+FR-019 Join flow P0 The host shall be able to approve or reject pending requests and the requester shall receive
+the decision.
+FR-020 Join flow P0 The system shall prevent a participant from occupying duplicate slots and shall prevent
+accepted participants from exceeding the maximum capacity.
+FR-021 Join flow P1 The system should support a waitlist and offer a newly available spot to the next eligible user
+when enabled.
+FR-022 Join flow P0 A participant shall be able to withdraw a pending request or leave an activity subject to clearly
+displayed timing/cancellation rules.
+FR-023 Polls P1 The system should allow hosts or participants to create polls for options such as time, venue,
+budget, or activity choice, with defined closing time and voting rules.
+FR-024 Messaging P0 The system shall provide activity-scoped group chat to approved participants, subject to
+activity state and moderation rules.
+FR-025 Messaging P1 The system may support one-to-one messaging only where the recipient has opted in, a
+request has been accepted, or another explicit permission rule is met.
+FR-026 Notifications P0 The system shall provide in-app notifications for join requests, decisions, activity changes,
+cancellations, chat messages, and relevant reminders.
+FR-027 Notifications P0 Users shall be able to control non-essential notification categories and frequency.
+FR-028 Location P0 The system shall allow manual venue/area selection if location permission is denied.
+FR-029 Location P0 The system shall display a public venue or approximate area to prospective participants and
+shall not expose a user's precise live location by default.
+FR-030 Trust & safety P0 Users shall be able to block another user and report a user, message, activity, or profile.
+FR-031 Trust & safety P0 The system shall hide or restrict blocked-user interactions according to policy and prevent the
+blocked user from contacting the blocker through supported app channels.
+FR-032 Moderation P0 Authorized moderators shall be able to review reports, remove content, warn/restrict/suspend
+accounts, and record moderation reasons.
+FR-033 Moderation P0 The system shall retain an auditable record of material moderation and administrative actions,
+with access controls.
+FR-034 Reviews P1 After an activity ends, the system should allow participants to submit structured feedback and
+report safety concerns; public ratings must be protected against abuse.
+FR-035 Admin P0 Administrators shall be able to manage categories, subcategories, activity policies, and
+account roles.
+FR-036 Admin P0 Administrative access shall require role-based authorization and stronger authentication
+appropriate to risk.
+FR-037 Privacy P0 Users shall be able to review and change profile visibility, discoverability, and optional
+location-sharing settings.
+FR-038 Privacy P0 The system shall collect only data necessary for defined product functions and document
+retention, export, and deletion policies.
+FR-039 Reliability P0 The system shall preserve the final participant count under concurrent join requests and
+return a clear result when an activity becomes full.
+FR-040 Accessibility P0 Core flows shall support screen readers, scalable text, adequate contrast, and touch targets
+suitable for mobile use.
+FR-041 Account safety P0 The system shall rate-limit sign-up, login attempts, posting, joining requests, invitations, and
+messaging to reduce spam and abuse.
+FR-042 Activity reporting P0 The system shall allow a user to report an activity as misleading, unsafe, inappropriate, spam,
+or otherwise policy-violating.
+FR-043 Audit/history P1 The system should retain a user's activity history and participation status according to privacy
+and retention settings.
+FR-044 Calendar P2 The system may allow users to add confirmed activities to a device calendar with explicit
+permission.
+FR-045 Payments P2 If payments are later introduced, the system shall define payment status, provider integration,
+refunds, disputes, receipts, and applicable compliance before release.
+Page 7
+
+ACTIVITY DISCOVERY PLATFORM | SRS v1.0
+6. Business Rules
+l Every activity must have one host, a category, a start time, a location/meeting method, and a maximum participant
+count.
+l Minimum participants must be less than or equal to maximum participants. The minimum is an activity goal; the
+maximum is a hard capacity limit.
+l The host may optionally require a minimum number of participants before the activity is considered confirmed. The app
+must show the confirmation status clearly.
+l An activity can be public/discoverable, private/invite-only, or unlisted/share-link based. Visibility and invitation
+permissions must be explicit.
+l The platform must distinguish a user's interest from consent to receive direct messages or repeated invitations.
+l Interest membership must not automatically expose phone number, email, exact location, or other private profile data.
+l Users must be able to report or block without needing to confront the other user.
+l For dating or romantic categories, participation must follow the product's age policy, consent rules, anti-harassment
+policy, and applicable law. Dating must not be silently enabled for ineligible users.
+l The platform must define cancellation behavior, no-show handling, waitlist behavior, and what happens when a host
+account is suspended.
+l Repeated invitations must be rate-limited; users must not be able to broadcast unlimited requests to everyone in a
+domain.
+l The system must prevent unauthorized users from viewing private activities, private chats, or pending requests.
+l Activity recommendations must explain key relevance signals where practical and must not infer sensitive traits from
+unrelated activity.
+7. Data Requirements and Conceptual Data Model
+Entity Key fields (illustrative) Purpose
+User user_id, auth_subject, display_name, bio, avatar_url, age/eligibility Account and public profile
+attributes where required, status, created_at
+Interest interest_id, parent_id, name, status Configurable category hierarchy
+UserInterest user_id, interest_id, preference_strength, created_at Many-to-many user interests
+Activity activity_id, host_id, title, description, category_id, start_at, end_at, venue, Activity listing and lifecycle
+approximate_location, min_participants, max_participants, visibility,
+join_policy, status
+ActivityMembership membership_id, activity_id, user_id, role, status, requested_at, decided_at Requests, accepted members, host,
+waitlist
+Poll poll_id, activity_id, creator_id, question, closes_at, status Group decisions
+PollOption / Vote option_id, poll_id, label; vote_id, option_id, user_id Poll choices and votes
+Conversation / Message conversation_id, activity_id, message_id, sender_id, body, created_at, Activity-scoped communication
+moderation_status
+Notification notification_id, user_id, type, payload_reference, read_at, created_at In-app and push notification state
+Block blocker_id, blocked_id, created_at User safety preferences
+Report report_id, reporter_id, target_type, target_id, reason, details, status, Safety/moderation workflow
+created_at
+Review review_id, activity_id, reviewer_id, target_id, rating/structured_feedback, Post-activity feedback
+created_at
+AdminAuditLog log_id, actor_id, action, target_type, target_id, reason, created_at Traceability for privileged actions
+This is a conceptual model, not a final database schema. The implementation team should define indexes, uniqueness
+constraints, deletion behavior, data retention, and transaction boundaries during detailed design.
+Page 8
+
+ACTIVITY DISCOVERY PLATFORM | SRS v1.0
+7.1 Important Data Constraints
+l Unique membership constraint for (activity_id, user_id) to prevent duplicate membership.
+l Capacity updates must use a transaction, lock, or equivalent atomic conditional update.
+l All times must be stored consistently (prefer UTC) and rendered in the user's local timezone.
+l Location should be stored at the minimum precision necessary; exact home addresses should not be required for
+ordinary activities.
+l Private message and report data must have strict authorization checks and retention rules.
+l Deletion/anonymization must account for legal obligations, abuse prevention, and records that cannot lawfully be erased
+immediately.
+8. External Interface Requirements
+8.1 User Interface
+l Authentication: welcome, register, sign in, recovery, consent.
+l Onboarding: profile basics, category selection, location preference, notification permissions.
+l Home/Discover: recommended activities, categories, search, filters, create button.
+l Activity details: host, schedule, public meeting point, participant count, rules, join/request action, report action.
+l Create/edit activity: category-driven fields, capacity, visibility, join policy, venue picker, preview.
+l Requests/participants: pending, accepted, rejected, waitlisted, leave/cancel controls.
+l Activity chat and polls: membership-gated, report/block affordances, clear system notices.
+l Notifications, profile/interests, settings/privacy, blocked users, help/safety center.
+l Moderator/admin console: reports queue, report details, actions, category management, audit history.
+8.2 API and Integrations
+l Versioned HTTPS REST API (or equivalent documented API) for account, profile, interest, activity, membership, poll,
+message, notification, and moderation resources.
+l Push notification provider and optional email/SMS provider.
+l Maps/geocoding provider for venue selection; avoid sending unnecessary personal data to third parties.
+l Object storage/CDN for profile and activity images, with file-type/size validation and abuse scanning.
+l Optional analytics/crash reporting with privacy-aware event design and no secrets or sensitive message content in logs.
+8.3 Error Handling
+The app must show actionable, human-readable errors for network failure, expired session, permission denial, full activity,
+closed activity, rejected request, invalid time, unavailable venue service, upload failure, and rate limiting. Retry actions
+must not duplicate activities, memberships, messages, or payments.
+Page 9
+
+ACTIVITY DISCOVERY PLATFORM | SRS v1.0
+9. Non-Functional Requirements
+ID Quality attribute Priority Requirement
+NFR-001 Performance P0 For typical supported network conditions, common API reads should target p95 under 500
+ms excluding third-party latency; activity creation/join actions should target p95 under 800
+ms. Validate with load tests.
+NFR-002 Responsiveness P0 Primary screens should render useful content promptly and provide loading, empty, offline,
+and error states.
+NFR-003 Availability P1 Production backend target should be defined with the hosting/SLO plan; initial target
+recommendation is 99.5% monthly availability, excluding planned maintenance.
+NFR-004 Scalability P0 Architecture should support horizontal scaling of stateless API services and
+indexed/paginated discovery queries.
+NFR-005 Security P0 Use TLS in transit, secure password/auth-provider practices, short-lived access tokens
+where applicable, protected secrets, server-side authorization, and secure storage on
+device.
+NFR-006 Privacy P0 Use data minimization, purpose limitation, user-controlled visibility, retention/deletion policy,
+and appropriate consent for permissions and communications.
+NFR-007 Authorization P0 Enforce permissions on the server for every protected resource; hiding UI controls alone is
+insufficient.
+NFR-008 Concurrency P0 Concurrent join requests must not exceed activity capacity or create duplicate membership.
+NFR-009 Reliability P0 Important actions should be idempotent or protected against duplicate submissions caused
+by retries.
+NFR-010 Accessibility P0 Support screen readers, text scaling, sufficient contrast, focus order, and accessible labels
+for essential controls.
+NFR-011 Maintainability P0 Use modular feature-based client architecture, documented API contracts, automated tests,
+linting, and code review.
+NFR-012 Observability P0 Capture structured operational logs, metrics, crash/error signals, and correlation IDs while
+excluding passwords, tokens, and private message contents.
+NFR-013 Localization P1 Keep user-facing strings externalized and support locale-aware dates, times, and
+currencies.
+NFR-014 Compatibility P0 Define and test supported Android versions/devices before release; keep iOS support
+feasible through Flutter.
+NFR-015 Backup & recovery P1 Define backup frequency, restore tests, recovery objectives, and incident response
+procedures.
+NFR-016 Abuse resistance P0 Use rate limits, spam detection, report workflows, content policies, and escalation paths
+appropriate to the risk.
+NFR-017 Data integrity P0 Validate all client inputs on the server and enforce database constraints for critical
+invariants.
+NFR-018 Testability P0 Business rules must be testable through unit, integration, API, and end-to-end tests.
+10. Security, Privacy, and Trust & Safety
+10.1 Security Controls
+l Use a reputable authentication solution or correctly implemented server-side authentication; never store plaintext
+passwords.
+l Apply least-privilege role-based access for users, hosts, moderators, and administrators.
+l Validate and authorize every activity, membership, chat, report, and admin request on the server.
+l Protect against injection, broken access control, credential stuffing, spam, malicious uploads, and replay/duplicate
+requests.
+l Use rate limits, abuse monitoring, secure session revocation, and audit logs for privileged actions.
+l Do not expose secrets in the Flutter app, source control, crash reports, or client-side environment files.
+Page 10
+
+ACTIVITY DISCOVERY PLATFORM | SRS v1.0
+10.2 Safety by Design
+l Encourage public meeting venues for first-time in-person meetings and show practical safety guidance.
+l Do not reveal exact live location, private phone number, or home address by default.
+l Provide visible block/report controls on profiles, activities, and chat.
+l Give moderators clear categories, severity levels, evidence access rules, and escalation procedures.
+l Support cancellation and leaving an activity without forcing a user to explain themselves to other participants.
+l Establish policies for harassment, sexual misconduct, threats, scams, minors, impersonation, discrimination, and
+dangerous activities.
+l Before release, define a minimum-age policy and separate eligibility rules for dating/romantic categories; obtain
+legal/privacy review for launch jurisdictions.
+10.3 India Launch Considerations
+Because an initial launch may be in India, the product owner should obtain qualified legal advice on applicable
+privacy/data-protection requirements, intermediary/platform obligations where applicable, consumer protection, online
+safety, and age-related requirements. This SRS does not constitute legal advice. The privacy notice, grievance/contact
+process, retention policy, and user reporting process must be finalized before public launch.
+11. Recommended Technical Architecture
+The architecture should keep the Flutter client thin and place matching, authorization, capacity checks, and safety
+enforcement on the backend.
+Layer Responsibility Implementation direction
+Mobile client Screens, navigation, forms, local state, cached Flutter/Dart; feature-first modules; state management
+non-sensitive data, permission prompts selected by the team
+API/backend Authentication integration, business rules, activity REST API with versioning; modular monolith is a practical
+lifecycle, matching, join transactions, chat authorization, MVP starting point
+moderation
+Database Users, interests, activities, membership, polls, messages, Relational database such as PostgreSQL; spatial
+reports, audit extension/querying if required
+Realtime Activity chat and timely membership/status updates WebSocket/realtime service or managed equivalent with
+server-side authorization
+Notifications Push and in-app notifications FCM/APNs or managed provider; queue/retry and preference
+checks
+Media Profile and activity images Object storage plus CDN, validation, access policies
+Admin Moderation and taxonomy management Separate protected web console or tightly restricted admin
+interface
+Operations Monitoring, backups, secrets, deployment, analytics CI/CD, environment separation, logs/metrics, backups,
+incident response
+Avoid starting with many microservices. A well-modularized backend with clear boundaries is easier to ship, test, and
+evolve at MVP scale. Extract services only when operational evidence justifies it.
+Page 11
+
+ACTIVITY DISCOVERY PLATFORM | SRS v1.0
+12. High-Level Screen Inventory
+Screen Purpose MVP
+Splash / Welcome Brand, value proposition, login/register entry Yes
+Register / Login / Recovery Secure account access Yes
+Profile setup Create user profile and consent choices Yes
+Interest selection Choose multiple domains and subdomains Yes
+Home / Discover Recommended and nearby/relevant activities Yes
+Search / Filters Find by keyword, category, time, distance, spots, budget Yes
+Activity details Understand plan, host, venue, capacity, and rules Yes
+Create / Edit activity Publish and manage an activity Yes
+Join requests / Participants Approve, reject, leave, or view membership status Yes
+Activity chat Coordinate with accepted participants Yes
+Notifications See requests, decisions, updates, reminders Yes
+Profile / Interests / Privacy Edit preferences and privacy controls Yes
+Report / Block / Help Safety and moderation access Yes
+Polls Coordinate choices within an activity Later
+Communities / Clubs Persistent interest-based groups Later
+Reviews / Attendance Post-activity feedback and check-in Later
+Admin moderation console Review reports and manage taxonomy Required before
+public launch
+13. Acceptance Criteria for MVP
+1 A new user can register, accept required policies, create a profile, select multiple interests, and reach the Discover
+screen.
+2 A user can create and publish a cricket activity with time, venue, capacity, and join policy.
+3 A user who follows cricket can discover the activity when its visibility, filters, and eligibility rules permit.
+4 An interested user can request to join; the host can approve or reject; both receive the correct status and notification.
+5 The system never admits more accepted participants than the activity's configured capacity, including during concurrent
+requests.
+6 Approved participants can access the activity chat; non-members and unauthorized users cannot.
+7 A host can edit or cancel an activity and accepted participants receive a clear update.
+8 A user can create a tea/coffee outing and select a public cafe or meeting point without exposing their private home
+address.
+9 Users can block/report profiles and activities; the action is recorded and available to authorized moderators.
+10 Users can edit interests and notification preferences; non-essential broadcast notifications respect these settings.
+11 Critical workflows have automated tests and pass manual testing on the defined supported Android devices.
+12 The production deployment has monitoring, backups, rate limiting, secure configuration, a privacy notice, community
+guidelines, and an operational moderation process.
+14. Testing Strategy
+l Unit tests: validation, eligibility, matching filters, capacity logic, lifecycle transitions, and permission rules.
+Page 12
+
+ACTIVITY DISCOVERY PLATFORM | SRS v1.0
+l API/integration tests: authentication, create/edit/cancel, request/approve/reject, membership authorization, notifications,
+reports, and deletion workflows.
+l Concurrency tests: simultaneous join requests at the last available spot; duplicate retries; duplicate membership
+attempts.
+l Security tests: IDOR/broken access control, unauthorized chat access, rate limits, token handling, upload validation, and
+admin privilege boundaries.
+l UI tests: onboarding, interest selection, search/filter, activity creation, join flow, chat, settings, block/report,
+empty/error/offline states.
+l Accessibility tests: screen reader labels, text scaling, contrast, keyboard/focus behavior where applicable.
+l Performance tests: feed pagination, search latency, high-demand activities, notification fan-out, and chat load.
+l Operational tests: deployment rollback, backup restore, alerting, moderation escalation, and account suspension.
+15. Risks and Mitigations
+Risk Impact Mitigation
+Cold-start / low local user Users see few matching activities Launch in a limited geography or community; seed legitimate events;
+density allow invite links and clear availability indicators.
+Spam and notification fatigue Users disable notifications or leave Opt-in notification preferences, per-user rate limits, relevance
+thresholds, mute controls, and digest options.
+Harassment or unsafe meetings User harm and reputational/legal risk Safety-first defaults, reporting/blocking, moderation coverage, age
+rules, public meeting guidance, and incident escalation.
+Fake profiles and scams Trust erosion Verification options, abuse signals, reporting, rate limits, and staged
+trust features.
+Overbooking Activity disruption Atomic capacity enforcement, unique constraints, waitlists, and
+concurrency tests.
+Too many categories / poor Confusing onboarding and irrelevant Curated taxonomy, search, subcategories, editable interests, and
+discovery feed measured recommendation quality.
+Privacy/location leakage Potential personal safety issue Approximate/public venue display, explicit permission, data
+minimization, access controls, and privacy review.
+Scope too broad for first release Delayed launch and unstable product Ship the defined MVP first; defer payments, advanced AI, clubs, and
+complex verification.
+16. Suggested Implementation Phases
+Phase Deliverables Exit condition
+Phase 0 — Product definition Finalize target users, age policy, initial launch geography, category Scope and key policies approved
+taxonomy, safety policies, MVP metrics
+Phase 1 — UX and User flows, wireframes, design system, API contracts, data model, threat Prototype and architecture reviewed
+architecture model
+Phase 2 — Foundation Flutter app structure, backend environment, authentication, profile, User can register and complete
+interests onboarding
+Phase 3 — Activity core Create/edit/cancel, discovery, filters, details, join/approval, capacity End-to-end activity lifecycle passes
+control tests
+Phase 4 — Coordination Activity chat, notifications, reminders, polls if included Accepted members coordinate reliably
+Phase 5 — Trust and admin Block/report, moderation queue, admin roles, audit trail, privacy controls Safety operations ready for closed beta
+Phase 6 — Beta and launch Device testing, security review, load testing, monitoring, policies, store Release checklist approved
+release preparation
+Phase 7 — Growth Recommendation improvements, communities, recurring events, Prioritized by real usage data
+calendar, advanced trust features
+Page 13
+
+ACTIVITY DISCOVERY PLATFORM | SRS v1.0
+17. Product Success Metrics
+l Activation: percentage of new users who complete onboarding and select at least one interest.
+l Time to first value: time from registration to first activity view, join request, or created activity.
+l Match success: percentage of activities that reach their minimum target before start time.
+l Join conversion: activity detail views that become join requests or confirmed joins.
+l Attendance/fulfillment: percentage of confirmed activities marked completed or attended.
+l Retention: returning users at 7-day and 30-day intervals.
+l Safety: report rate, time to first moderation action, repeat-abuse rate, and user block rate.
+l Notification quality: opt-out rate, mute rate, and conversion from relevant notifications.
+l Local liquidity: number of active activities and eligible participants by category and area.
+Metrics should be aggregated with privacy safeguards. Do not optimize only for message volume or time spent; successful
+real-world activity completion and user safety are more meaningful outcomes.
+18. Open Decisions Before Development
+Decision Recommended starting point Owner / status
+Product name and branding Choose and validate a unique name before public launch Product owner — Open
+Initial geography Start with one city/college/community or a small number of launch Product owner — Open
+zones
+Minimum age and dating policy Define explicit age eligibility and dating-category safeguards before Product/legal — Must resolve
+implementation
+Authentication methods Email/phone plus a trusted provider as appropriate for target market Product/engineering — Open
+Public vs invite-only defaults Public discoverability with explicit visibility controls; private by choice Product owner — Open
+Join approval defaults Host approval for social/meetup activities; optional auto-join for Product/safety — Open
+suitable low-risk activities
+Location precision Public venue or approximate area; exact live location off by default Product/safety — Recommended
+Chat access Activity-scoped chat for accepted members; direct messaging gated by Product/safety — Recommended
+consent/permission
+Minimum participant handling Show target/minimum separately from hard maximum; decide Product owner — Open
+auto-cancel/waitlist behavior
+Backend hosting and database Select based on team skills, budget, scale, compliance, and Engineering — Open
+operational needs
+Monetization Defer until core activity completion and retention are validated Product owner — Open
+Moderation coverage Define response times, escalation contacts, and severe-report Operations — Must resolve
+handling before public launch
+Page 14
+
+ACTIVITY DISCOVERY PLATFORM | SRS v1.0
+Appendix A — Example Activity Record
+Field Example
+Title Friendly Cricket Match — Saturday
+Category Sports > Cricket
+Host User 1042
+Start / end Saturday, 4:00 PM–6:00 PM local time
+Venue Selected public cricket ground
+Minimum participants 10
+Maximum participants 14
+Accepted participants 8
+Open spots 6
+Join policy Host approval
+Visibility Public to eligible users
+Estimated cost Optional; shown as estimate, not a payment
+Status Published / recruiting
+Appendix B — Requirement Traceability
+Every FR/NFR identifier should be linked in the project tracker to one or more design screens, API endpoints, database
+constraints, test cases, and release status. A requirement is not complete merely because its UI exists; server-side
+validation, authorization, error handling, and tests must also be delivered.
+Page 15

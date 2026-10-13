@@ -1,0 +1,293 @@
+PRODUCT DESIGN
+Activity Find your people. Make a plan.
+UI direction: friendly, clear, safe, action-oriented
+Discovery
+Platform Evening cricket
+Today (cid:127) 6:00 PM (cid:127) 1.2 km
+3 spots left
+A mobile-first experience for discovering people, creating
+plans, joining small groups, and coordinating safely. Tea & conversation
+plans, joining small groups, and coordinating safely. Today (cid:127) 5:30 PM (cid:127) 0.8 km
+Open group
+Weekend city walk
+Sunday (cid:127) 8:00 AM
+4 going
+Design principle: discovery first, details transparent, joining controlled by the host.
+MOBILE-FIRST COMMUNITY
+
+1. Product structure & navigation
+Information architecture and primary navigation
+INFORMATION ARCHITECTURE BOTTOM NAVIGATION
+Explore
+Recommended activities, search, filters, map/list toggle
+Recommended activities, search, filters, map/list toggle
+Activity details
+Host, time, approximate location, spots, rules, join request
+Discover activities and filter results
+Host, time, approximate location, spots, rules, join request
+Explore
+Create
+Category, title, date/time, meeting point, capacity, visibility
+Category, title, date/time, meeting point, capacity, visibility
+Start a new activity with a guided form
+Create
+Requests
+Pending requests, approve/reject, participant list
+Pending requests, approve/reject, participant list
+Chats, join-request updates, notifications
+Inbox Inbox
+Activity group chats, unread messages, system notifications
+Activity group chats, unread messages, system notifications
+Profile Interests, history, privacy and account
+Profile
+Interests, preferences, activity history, safety controls
+Interests, preferences, activity history, safety controls
+Safety
+Block, report, privacy, moderation outcomes
+Block, report, privacy, moderation outcomes
+UX rules
+Keep the primary action visible. Use plain-language statuses. Show approximate location before approval; reveal exact
+meeting details only when appropriate. Never send unsolicited mass invitations to every user with a shared interest.
+meeting details only when appropriate. Never send unsolicited mass invitations to every user with a shared interest.
+UI/UX Design (cid:127) 2/9
+
+2. Visual design system
+A consistent, accessible component language for the mobile app
+COLOR PALETTE
+Primary Deep navy Accent teal Canvas Success Warning Danger
+0x356ae6 0x172b4d 0x17a398 0xf5f7fb 0x198754 0xb7791f 0xc53030
+TYPOGRAPHY CORE COMPONENTS
+Screen title — 24 / Bold
+Primary action Secondary action
+Section heading — 16 / Semibold
+Open Pending Full Completed
+Body text — 14 / Regular (cid:127) Supporting — 12
+Use sentence case; avoid long blocks and jargon. Cards (cid:127) chips (cid:127) bottom sheets (cid:127) inline validation (cid:127) skeleton loading
+DESIGN PRINCIPLES
+Trust by default Progressive disclosure
+Verified contact methods, host details, visible group rules and report/block controls. Ask only for what is needed at each step; show more detail as the user proceeds.
+Verified contact methods, host details, visible group rules and report/block controls. Ask only for what is needed at each step; show more detail as the user proceeds.
+Accessible interactions Clear system feedback
+Readable contrast, 44×44 pt touch targets, labels plus icons, dynamic text support. Explain loading, empty, success, failure, pending approval, full, and cancelled states.
+Readable contrast, 44×44 pt touch targets, labels plus icons, dynamic text support. Explain loading, empty, success, failure, pending approval, full, and cancelled states.
+UI/UX Design (cid:127) 3/9
+
+Search cricket, coffee, walks…
+For you Today Nearby Filters
+Suggested for you
+Evening cricket
+Today (cid:127) 6:00 PM (cid:127) 1.2 km
+3 spots left
+Tea & conversation
+Today (cid:127) 5:30 PM (cid:127) 0.8 km
+3. Screen coOnpenc geroupp t — Explore
+Home screen optimized for quick discovery and confident decisions
+Weekend city walk
+Sun (cid:127) 8:00 AM (cid:127) 2.1 km
+4 going
+9:41
+Explore activities
+Find something to do with people nearby
+WHAT THIS SCREEN MUST DO
+Search first
+Search by activity, category, or keyword.
+Search by activity, category, or keyword.
+Fast filters
+Time, distance, category, available spots, and accessibility.
+Time, distance, category, available spots, and accessibility.
+Transparent cards
+Show time, approximate distance, spots remaining, and group status.
+Show time, approximate distance, spots remaining, and group status.
+Personalized but respectful
+Rank by interests and preferences; never imply users are obligated to join.
+Rank by interests and preferences; never imply users are obligated to join.
+Useful empty state
+If no results match, suggest widening time/distance or creating an activity.
+If no results match, suggest widening time/distance or creating an activity.
+Explore Create Inbox Profile
+Main CTA: tap an activity card to inspect details before requesting to join.
+UI/UX Design (cid:127) 4/9
+
+TODAY (cid:127) 6:00–7:30 PM
+3 spots remaining
+About this activity
+Friendly 6-a-side match. All skill levels welcome. Bring water and
+sports shoes.
+sports shoes.
+Meeting point
+Public sports ground (cid:127) approx. 1.2 km away
+4. ScHroset en concept — Activity details
+Arjun (cid:127) 4.8 host feedback (example)
+Make the plan, host, participation rules, and next action obvious
+Group rules
+Be respectful (cid:127) arrive on time (cid:127) no spam
+Request to join
+9:41
+Evening cricket
+Sports (cid:127) Created by Arjun
+DETAILS & TRUST CHECKLIST
+Before approval
+Show approximate meeting location; don't expose private contact details.
+Show approximate meeting location; don't expose private contact details.
+Capacity
+Show confirmed count and remaining spots; don't count pending requests as confirmed.
+Show confirmed count and remaining spots; don't count pending requests as confirmed.
+Host controls
+View host profile, activity history, rules, and report/block actions.
+View host profile, activity history, rules, and report/block actions.
+Join state
+Button changes to Pending approval, Joined, Full, or Closed as appropriate.
+Button changes to Pending approval, Joined, Full, or Closed as appropriate.
+After approval
+Reveal exact meeting instructions only when suitable; enable activity group chat.
+Reveal exact meeting instructions only when suitable; enable activity group chat.
+UI/UX Design (cid:127) 5/9
+
+CATEGORY
+Sports / Food & drink / Travel / Other
+ACTIVITY TITLE
+e.g., Evening cricket
+DATE & TIME
+Today (cid:127) Start and end time
+MEETING POINT
+Search public place or drop pin
+5. ScPrAReTICeIPnAN Tc LIMoITncept — Create an activity
+e.g., 6 people total
+A short, guided form with validation and a clear preview
+WHO CAN FIND IT
+Everyone / matching interests
+DESCRIPTION & RULES
+9:41
+Skill level, costs, what to bring
+Create activity
+You can edit details before Ppurbelvisiheinwg activity
+FORM BEHAVIOR
+Required fields
+Category, title, date/time, meeting point, capacity, and visibility.
+Category, title, date/time, meeting point, capacity, and visibility.
+Validation
+Prevent past dates, end time before start time, invalid capacity, and missing location.
+Prevent past dates, end time before start time, invalid capacity, and missing location.
+Capacity semantics
+Clarify whether host counts toward the total participant limit.
+Clarify whether host counts toward the total participant limit.
+Privacy
+Offer public-place selection and explain location visibility before publishing.
+Offer public-place selection and explain location visibility before publishing.
+Draft safety
+Save as draft when the user leaves; show a preview before publish.
+Save as draft when the user leaves; show a preview before publish.
+UI/UX Design (cid:127) 6/9
+
+Riya S.
+Host: Meet near main gate.
+Interested (cid:127) profile available
+Host: Meet near main gate.
+Approve Decline
+Riya: I’ll arrive 5 min early.
+Dev P. Riya: I’ll arrive 5 min early.
+Plays regularly (cid:127) new member
+Approve Decline
+Host: Bring water.
+Host: Bring water.
+6. Screen concept — Host requests & group chat
+Neha K.
+Keep decisions and coordination inside the activity context
+Beginner (cid:127) nearby
+Approve Decline
+9:41 9:41
+Message this activity group…
+Join requests Cricket group
+Approval rechecks capacity automatically.
+Evening cricket (cid:127) 3 pending 4 members (cid:127) Activity chat
+RULES
+(cid:127) Only approved members and the host can access the activity
+chat.
+chat.
+(cid:127) Keep join decisions auditable and notify users of outcomes.
+(cid:127) Keep join decisions auditable and notify users of outcomes.
+(cid:127) Provide mute, leave chat, report, and block controls.
+(cid:127) Provide mute, leave chat, report, and block controls.
+(cid:127) Use clear timestamps and message delivery/error states.
+(cid:127) Use clear timestamps and message delivery/error states.
+(cid:127) Don't expose phone numbers by default.
+(cid:127) Don't expose phone numbers by default.
+UI/UX Design (cid:127) 7/9
+
+7. Profile, notifications & safety
+Give users control over preferences and a clear route to get help
+PROFILE NOTIFICATIONS SAFETY & PRIVACY
+Before joining
+Subodh (example) Before joining
+Join request approved (cid:127) Show host and activity details.
+Interests (cid:127) Sports, coffee, travel
+You’re in: Evening cricket (cid:127) Show host and activity details.
+You’re in: Evening cricket (cid:127) Display approximate location.
+(cid:127) Display approximate location.
+(cid:127) Explain group rules and costs.
+Interests
+(cid:127) Explain group rules and costs.
+Add/remove categories New request
+Riya wants to join your activity After joining
+Riya wants to join your activity
+After joining
+My activities
+(cid:127) Show meeting instructions to approved members.
+Hosted, joined, past (cid:127) Show meeting instructions to approved members.
+(cid:127) Allow users to leave without friction.
+Activity reminder
+(cid:127) Allow users to leave without friction.
+Preferences
+Your city walk starts tomorrow
+Distance, time, notifications Your city walk starts tomorrow
+Always available
+Always available
+(cid:127) Report activity/user.
+Privacy
+(cid:127) Report activity/user.
+Profile visibility and location Activity updated
+(cid:127) Block user and prevent future contact.
+The host changed the meeting time
+(cid:127) Block user and prevent future contact.
+The host changed the meeting time
+(cid:127) Clear privacy settings and account controls.
+Safety
+(cid:127) Clear privacy settings and account controls.
+Blocked users and reports
+(cid:127) Confirm report receipt without promising a specific
+outcome.
+outcome.
+UI/UX Design (cid:127) 8/9
+
+8. UX states, accessibility & handoff
+The design is not complete until edge cases and implementation details are specified
+REQUIRED UI STATES ACCESSIBILITY CHECKLIST
+(cid:127) Maintain WCAG AA contrast for text and controls.
+Loading Empty (cid:127) Maintain WCAG AA contrast for text and controls.
+Skeleton cards; preserve layout. Explain why and suggest next action. (cid:127) Never communicate status using color alone; pair color with text/icon.
+Skeleton cards; preserve layout. Explain why and suggest next action.
+(cid:127) Never communicate status using color alone; pair color with text/icon.
+(cid:127) Make tap targets approximately 44 × 44 pt or larger.
+Error Pending
+(cid:127) Make tap targets approximately 44 × 44 pt or larger.
+Plain language + retry; retain entered form data. Show that host approval is required. (cid:127) Support screen readers with meaningful labels and focus order.
+Plain language + retry; retain entered form data. Show that host approval is required.
+(cid:127) Support screen readers with meaningful labels and focus order.
+(cid:127) Avoid time-only urgency and flashing motion.
+Full / closed Cancelled / changed
+(cid:127) Avoid time-only urgency and flashing motion.
+Disable join action; offer similar activities. Notify all confirmed members; show latest details. (cid:127) Respect system text scaling and reduced-motion settings.
+Disable join action; offer similar activities. Notify all confirmed members; show latest details.
+(cid:127) Respect system text scaling and reduced-motion settings.
+(cid:127) Validate forms inline and identify the field and fix needed.
+(cid:127) Validate forms inline and identify the field and fix needed.
+DEVELOPER HANDOFF
+Components Navigation
+ActivityCard, InterestChip, StatusBadge, UserMiniProfile, JoinRequestCard, MessageBubble, EmptyState, Explore fi Activity details fi Join request fi Pending fi Approved fi Activity chat
+ErrorState Explore fi Activity details fi Join request fi Pending fi Approved fi Activity chat
+ErrorState
+Data needed Acceptance
+Activity ID, title, category, start/end, approximate location, capacity, confirmed count, host, status, join status No over-capacity joins; pending/approved states are distinct; chat access follows approved membership;
+Activity ID, title, category, start/end, approximate location, capacity, confirmed count, host, status, join status block/report works from activity and profile.
+block/report works from activity and profile.
+UI/UX Design (cid:127) 9/9

@@ -14,7 +14,7 @@ class ApiException implements Exception {
 class ApiClient {
   ApiClient(this.baseUrl, {http.Client? client})
     : _client = client ?? http.Client();
-  final String baseUrl;
+  String baseUrl;
   final http.Client _client;
 
   Future<dynamic> request(String method, String path, {Object? body}) async {

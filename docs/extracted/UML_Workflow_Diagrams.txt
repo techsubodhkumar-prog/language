@@ -1,0 +1,105 @@
+1. Use-Case Diagram
+Actors and major capabilities of the group activity discovery platform
+Activity Discovery Platform
+Register / Sign in Manage profile & interests
+Discover / filter activities Create / edit activity
+Guest Activity Host
+Request to join / leave Approve / reject requests
+Group chat & coordination Notifications
+RegisterednUser
+Moderator / Admin
+Report / block / moderation
+Note: joining and capacity checks are enforced by the backend; chat is available to eligible members.
+Activity Discovery Platform (cid:127) 1/5
+
+2. Activity Diagram
+End-to-end workflow: create an activity, discover it, join, coordinate, and close
+Member lane Platform lane Host lane
+Sign in / update interests
+submit
+Create activity details Validate and save
+Capacity +
+No: reject/full; notify requester
+eligibility?
+Browse activity and show Match eligible users Do not exceed activity capacity.
+request to join and notify
+yes
+host decision
+request
+Approve / reject request
+decision
+request
+Join group chat and Update membership and
+result
+coordinate send result
+close
+Complete / cancel /
+expire activity
+Activity Discovery Platform (cid:127) 2/5
+
+3. Sequence Diagram
+Successful join request with host approval and membership creation
+MMeemmbbeerr API / Auth & Host Chat / Push
+PostgreSQL
+AApppp Backend Policy App Realtime Service
+POST /activities/{id}/join
+Authenticate + authorize
+User eligible
+Check status / capacity
+Create pending membership
+Notify host of request
+Approve request
+Atomic capacity recheck + approve
+Membership = approved
+Backend publishes membership change fi chat access enabled fi participant and host receive notifications.
+Activity Discovery Platform (cid:127) 3/5
+
+4. ER Diagram (Conceptual)
+Core data entities and cardinalities for discovery, membership, chat, and safety
+ACTIVITIES
+USERS
+PK activity_id
+USER_INTERESTS INTERESTS
+PK user_id FK host_user_id
+hosts 1 : many
+name, email, password_hash 1 : many PK/FK user_id many : 1 PK interest_id title, time, location
+status, created_at PK/FK interest_id name, category capacity, status
+1 : many
+1 : many
+1 : many
+1 : many
+MEMBERSHIPS
+MESSAGES
+PK membership_id
+blocks FK activity_id, user_id PK message_id
+NOTIFICATIONS
+status, requested_at FK activity_id, sender_id
+PK notification_id body, created_at
+FK user_id
+type, payload, read_at
+1 : many
+REPORTS
+BLOCKS
+PK report_id
+PK (blocker, blocked) FK reporter_id
+FK user IDs target_type/id, status
+Recommended constraints: UNIQUE(activity_id, user_id); capacity changes in a transaction; index status/time/location.
+Activity Discovery Platform (cid:127) 4/5
+
+5. State Diagram
+Activity lifecycle and join-request membership lifecycle
+Activity lifecycle Membership request lifecycle
+publish host approves host rejects
+Draft Published Requested Approved Rejected
+capacity reached
+leave host removes
+Full
+withdraw
+start time Left Removed
+In progress
+finish end time
+cancel
+Withdrawn
+Completed Cancelled Expired
+Only the host can approve/reject join requests. Activity status and membership status are separate. Approval must re-check capacity and blocking/eligibility rules on the server.
+Activity Discovery Platform (cid:127) 5/5

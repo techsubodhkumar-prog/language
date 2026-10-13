@@ -1,0 +1,68 @@
+SYSTEM ARCHITECTURE
+AND DATABASE DIAGRAMS
+Activity Discovery, Matching & Group Coordination Platform
+Version 1.0 | 12 October 2026
+Architecture (cid:127) Conceptual ERD (cid:127) Activity workflow (cid:127) Data design notes
+
+1. System Architecture
+The architecture separates the Flutter client from server-side business rules. The backend is authoritative for authorization, eligibility, activity lifecycle, join approvals, and participant
+capacity.
+Activity Discovery Platform — System Architecture & Database Diagrams Page 2
+
+Recommended MVP stack: Flutter/Dart mobile client; versioned HTTPS API; PostgreSQL relational database; a realtime service for activity chat; push notifications; object storage for
+images; and a protected moderation/admin console. A cache or job queue can be added when load or retry needs justify it.
+Activity Discovery Platform — System Architecture & Database Diagrams Page 3
+
+2. Conceptual Database ER Diagram
+This diagram shows the major entities and relationships. It is a conceptual ERD; exact column types, indexes, constraints, and provider-specific auth fields should be finalized during
+implementation.
+Activity Discovery Platform — System Architecture & Database Diagrams Page 4
+
+Activity Discovery Platform — System Architecture & Database Diagrams Page 5
+
+3. Activity Creation and Matching Workflow
+Important: users who share an interest should not automatically receive unlimited unsolicited messages. The system should make activities discoverable and send notifications only under
+user preferences, visibility rules, eligibility checks, and rate limits.
+Activity Discovery Platform — System Architecture & Database Diagrams Page 6
+
+4. Core Database Tables
+Table Important columns / constraints Purpose
+users user_id PK; auth_subject unique; display_name; bio; avatar_url; status; created_at Account/profile. Keep credentials with trusted auth provider where
+possible.
+interests interest_id PK; parent_id FK interests; name; status Hierarchical activity categories.
+user_interests user_id FK; interest_id FK; preference_strength; composite unique(user_id, interest_id) Many-to-many user interests.
+activities activity_id PK; host_user_id FK users; category_id FK interests; start_at; end_at; venue; Activity listing and lifecycle.
+min_participants; max_participants; visibility; join_policy; status
+activity_memberships membership_id PK; activity_id FK; user_id FK; role; status; requested_at; decided_at; Host, pending request, accepted, rejected, waitlisted, left.
+unique(activity_id,user_id)
+polls poll_id PK; activity_id FK; creator_id FK users; question; closes_at; status Optional group decision polls.
+poll_options option_id PK; poll_id FK polls; label Options for each poll.
+poll_votes vote_id PK; option_id FK; user_id FK; created_at; unique(option_id,user_id) Votes; apply poll-specific rules.
+messages message_id PK; activity_id FK; sender_user_id FK; body; created_at; moderation_status Activity-scoped chat; enforce membership server-side.
+notifications notification_id PK; user_id FK; type; reference_id; read_at; created_at In-app/push notification records.
+blocks blocker_user_id FK; blocked_user_id FK; created_at; composite User blocking relationship.
+PK(blocker_user_id,blocked_user_id)
+reports report_id PK; reporter_user_id FK; target_type; target_id; reason; status; created_at Safety reports; target may be polymorphic.
+reviews review_id PK; activity_id FK; reviewer_user_id FK; target_user_id nullable; feedback; created_at Optional post-activity feedback.
+admin_audit_logs audit_id PK; actor_user_id nullable FK; action; target_type; target_id; reason; created_at Audit of privileged actions.
+5. Critical Integrity and Security Rules
+(cid:127) Use a unique constraint on (activity_id, user_id) so a user cannot occupy duplicate membership records.
+(cid:127) Use a database transaction or atomic conditional update to enforce max_participants under concurrent join requests.
+(cid:127) Store timestamps consistently (prefer UTC); display local time to each user.
+(cid:127) Enforce private activity, chat, and membership authorization on the backend for every request.
+(cid:127) Keep exact live location private by default; use a selected public venue or approximate area for discovery.
+(cid:127) Treat report targets carefully: validate target_type and target_id, and restrict report evidence to authorized moderators.
+Activity Discovery Platform — System Architecture & Database Diagrams Page 7
+
+(cid:127) Use pagination and indexes for activity discovery, especially category, status, start_at, and geographic filtering.
+(cid:127) Use soft-delete/anonymization and retention policies thoughtfully; document exceptions for abuse/security records.
+(cid:127) Use rate limits for registration, activity creation, invitations, join requests, and messages.
+(cid:127) Do not put passwords, access tokens, or private message content in application logs.
+6. Suggested Indexes
+Illustrative indexes: activities(status, start_at); activities(category_id, status, start_at); activity_memberships(activity_id, status); activity_memberships(user_id, status);
+messages(activity_id, created_at); notifications(user_id, read_at, created_at); reports(status, created_at); user_interests(interest_id, user_id). Add a spatial index if PostgreSQL/PostGIS is
+used for location queries.
+7. Development order
+1) Auth/profile/interests fi 2) activity create/discover fi 3) join request and atomic capacity fi 4) notifications fi 5) member-only chat fi 6) block/report/admin moderation fi 7) polls,
+reviews, recommendations. Keep the backend modular rather than starting with many microservices.
+Activity Discovery Platform — System Architecture & Database Diagrams Page 8

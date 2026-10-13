@@ -69,7 +69,20 @@ class _AuthFlowState extends State<AuthFlow> {
       return const _LoadingScreen(label: 'Checking your profile…');
     }
     if (profileError != null) {
-      return _RetryScreen(message: profileError!, onRetry: _checkProfile);
+      return _RetryScreen(
+        message: profileError!,
+        currentUrl: api.baseUrl,
+        onRetry: _checkProfile,
+        onUpdateUrl: (newUrl) {
+          setState(() {
+            api.baseUrl = newUrl;
+          });
+          _checkProfile();
+        },
+        onSignOut: () async {
+          await Supabase.instance.client.auth.signOut();
+        },
+      );
     }
     return hasProfile
         ? HomeScreen(api: api)
@@ -600,21 +613,174 @@ class _LoadingScreen extends StatelessWidget {
   );
 }
 
-class _RetryScreen extends StatelessWidget {
-  const _RetryScreen({required this.message, required this.onRetry});
+class _RetryScreen extends StatefulWidget {
+  const _RetryScreen({
+    required this.message,
+    required this.onRetry,
+    this.currentUrl,
+    this.onUpdateUrl,
+    this.onSignOut,
+  });
+
   final String message;
   final Future<void> Function() onRetry;
+  final String? currentUrl;
+  final ValueChanged<String>? onUpdateUrl;
+  final Future<void> Function()? onSignOut;
+
+  @override
+  State<_RetryScreen> createState() => _RetryScreenState();
+}
+
+class _RetryScreenState extends State<_RetryScreen> {
+  bool _isRetrying = false;
+
+  void _showChangeUrlDialog() {
+    final controller = TextEditingController(text: widget.currentUrl ?? '');
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Configure API Base URL'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              'Enter the backend API endpoint URL reachable by this device:',
+              style: TextStyle(fontSize: 13),
+            ),
+            const SizedBox(height: 12),
+            TextField(
+              controller: controller,
+              decoration: const InputDecoration(
+                labelText: 'API Base URL',
+                hintText: 'http://<PC_IP>:3000/api/v1',
+                border: OutlineInputBorder(),
+              ),
+            ),
+            const SizedBox(height: 12),
+            Wrap(
+              spacing: 8,
+              runSpacing: 4,
+              children: [
+                ActionChip(
+                  label: const Text('localhost:3000 (USB)'),
+                  onPressed: () =>
+                      controller.text = 'http://localhost:3000/api/v1',
+                ),
+                ActionChip(
+                  label: const Text('10.0.2.2:3000 (Emulator)'),
+                  onPressed: () =>
+                      controller.text = 'http://10.0.2.2:3000/api/v1',
+                ),
+              ],
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            onPressed: () {
+              final newUrl = controller.text.trim();
+              if (newUrl.isNotEmpty && widget.onUpdateUrl != null) {
+                Navigator.pop(ctx);
+                widget.onUpdateUrl!(newUrl);
+              }
+            },
+            child: const Text('Save & Reconnect'),
+          ),
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) => Scaffold(
     body: Center(
-      child: Padding(
+      child: SingleChildScrollView(
         padding: const EdgeInsets.all(24),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Text(message, textAlign: TextAlign.center),
+            Icon(
+              Icons.cloud_off_rounded,
+              size: 56,
+              color: Theme.of(context).colorScheme.error,
+            ),
             const SizedBox(height: 16),
-            FilledButton(onPressed: onRetry, child: const Text('Retry')),
+            const Text(
+              'Connection Error',
+              style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              widget.message,
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                fontSize: 14,
+                color: Theme.of(context).colorScheme.onSurfaceVariant,
+              ),
+            ),
+            if (widget.currentUrl != null) ...[
+              const SizedBox(height: 14),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                decoration: BoxDecoration(
+                  color: Theme.of(context).colorScheme.surfaceContainerHighest,
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: SelectableText(
+                  'Target: ${widget.currentUrl}',
+                  style: const TextStyle(fontSize: 12, fontFamily: 'monospace'),
+                ),
+              ),
+            ],
+            const SizedBox(height: 20),
+            SizedBox(
+              width: double.infinity,
+              child: FilledButton.icon(
+                onPressed: _isRetrying
+                    ? null
+                    : () async {
+                        setState(() => _isRetrying = true);
+                        try {
+                          await widget.onRetry();
+                        } finally {
+                          if (mounted) setState(() => _isRetrying = false);
+                        }
+                      },
+                icon: _isRetrying
+                    ? const SizedBox(
+                        width: 16,
+                        height: 16,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      )
+                    : const Icon(Icons.refresh),
+                label: Text(_isRetrying ? 'Retrying…' : 'Retry'),
+              ),
+            ),
+            if (widget.onUpdateUrl != null && widget.currentUrl != null) ...[
+              const SizedBox(height: 8),
+              SizedBox(
+                width: double.infinity,
+                child: OutlinedButton.icon(
+                  onPressed: _showChangeUrlDialog,
+                  icon: const Icon(Icons.settings_ethernet),
+                  label: const Text('Change Server URL'),
+                ),
+              ),
+            ],
+            if (widget.onSignOut != null) ...[
+              const SizedBox(height: 8),
+              TextButton.icon(
+                onPressed: widget.onSignOut,
+                icon: const Icon(Icons.logout),
+                label: const Text('Sign Out'),
+              ),
+            ],
           ],
         ),
       ),

@@ -12,12 +12,36 @@ flutter pub get
 flutter run \
   --dart-define=SUPABASE_URL=https://your-project.supabase.co \
   --dart-define=SUPABASE_ANON_KEY=your-publishable-key \
-  --dart-define=API_BASE_URL=http://10.0.2.2:3000/api/v1
+  --dart-define=API_BASE_URL=http://localhost:3000/api/v1
 ```
 
-Use `http://localhost:3000/api/v1` for Flutter web or desktop when the backend runs on
-the same machine. The Android emulator uses `10.0.2.2` to reach the host machine.
+### Connecting to Backend
 
-Without Supabase configuration, the app shows the required configuration instead of
-attempting authentication. New users create a profile and select interests before reaching
-the authenticated home screen.
+1. **Start the backend first**:
+   ```bash
+   cd backend
+   npm run start:dev
+   ```
+
+2. **Physical Android Device (via USB)**:
+   Forward port 3000 from the phone to your computer:
+   ```bash
+   adb reverse tcp:3000 tcp:3000
+   ```
+   Now `http://localhost:3000/api/v1` will connect seamlessly over USB.
+
+3. **Physical Android Device (via Wi-Fi)**:
+   Find your computer's local IP (e.g. `10.0.19.45`) and run:
+   ```bash
+   flutter run --dart-define=API_BASE_URL=http://10.0.19.45:3000/api/v1
+   ```
+   Or change the server URL directly inside the app using the **Change Server URL** button on the error screen.
+
+4. **Android Emulator**:
+   The emulator routes host machine loopback to `10.0.2.2`:
+   ```bash
+   flutter run --dart-define=API_BASE_URL=http://10.0.2.2:3000/api/v1
+   ```
+
+5. **Desktop / Web**:
+   Uses `http://localhost:3000/api/v1` by default.

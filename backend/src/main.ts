@@ -16,9 +16,9 @@ async function bootstrap() {
   app.useGlobalFilters(new HttpExceptionFilter());
   app.enableCors();
 
-  await app.listen(port);
+  await app.listen(port, '0.0.0.0');
   logger.log(
-    `Activity Discovery API listening on http://localhost:${port}/${apiPrefix}`,
+    `Activity Discovery API listening on http://0.0.0.0:${port}/${apiPrefix}`,
   );
 }
 
