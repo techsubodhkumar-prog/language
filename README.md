@@ -184,9 +184,23 @@ Run from the `mobile/` directory:
   - Flutter application shell, theme, and feature-first module structure.
   - NestJS modular monolith with `/api/v1/health` endpoint, global error filter, and environment validation.
   - Test suites, static analysis, and CI-ready configurations verified.
-- [x] **Milestone 1: Identity & Onboarding** *(implemented; configure Supabase and PostgreSQL for live use)*
-- [x] **Milestone 2: Activity Core & Discovery** *(Create/edit/cancel activities, details, filters, PostGIS radius search API)*
-- [ ] **Milestone 3: Join Workflow & Concurrency Control** *(Atomic capacity locking, host approvals)*
-- [ ] **Milestone 4: Real-Time Chat & Notifications** *(Socket.IO rooms, FCM push notifications)*
-- [ ] **Milestone 5: Trust, Safety & Admin Console** *(Block/report system, audit logs, web moderation)*
-- [ ] **Milestone 6: Release Hardening & Store Readiness**
+- [x] **Milestone 1: Identity & Onboarding** *(Completed)*
+  - Supabase Auth integration, user profiles, interests taxonomy, secure JWT verification.
+- [x] **Milestone 2: Activity Core & Discovery** *(Completed)*
+  - Create/edit/cancel activities, details, filters, PostGIS radius search API (`ST_DWithin`).
+- [x] **Milestone 3: Join Workflow & Concurrency Control** *(Completed)*
+  - Atomic capacity locking, transactions (`FOR UPDATE`), host approval/rejection lifecycle.
+- [x] **Milestone 4: Real-Time Chat & Real-Time Messaging** *(Completed)*
+  - Socket.IO rooms, message pagination, deduplication, host & participant authorization.
+- [x] **Milestone 5: Notifications & Activity Lifecycle** *(Completed)*
+  - In-app notification center, FCM push integration, idempotent scheduled reminders.
+- [x] **Milestone 6: Production Readiness, Security Audit & Deployment Preparation** *(Completed)*
+  - Request ID tracing, sliding-window rate limiting, security headers, production logging, safe error masking.
+  - Database pool shutdown hooks, liveness (`/health`) and readiness (`/health/ready`) probes.
+  - Flutter Android release configuration, dynamic API URL, and permission declarations.
+  - Full production deployment guide: [`docs/DEPLOYMENT_GUIDE.md`](docs/DEPLOYMENT_GUIDE.md).
+- [x] **Milestone 7: Real-Device QA, Integration Testing & Beta Release** *(Completed)*
+  - 14-step automated end-to-end product journey verified.
+  - In-flight double-tap prevention guards implemented across activity creation and join requests.
+  - Android release signing configuration supporting local `key.properties` with safe debug fallback.
+  - Verified Android Release APK (`53.2MB`) and App Bundle AAB (`51.6MB`) built cleanly with production defines.

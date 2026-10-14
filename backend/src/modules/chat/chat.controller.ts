@@ -20,6 +20,8 @@ import { SendMessageDto } from './dto/send-message.dto.js';
 import { ListMessagesDto } from './dto/list-messages.dto.js';
 import type { ChatHistoryResponse, ChatMessage } from './chat.types.js';
 
+import { RateLimit } from '../../common/decorators/rate-limit.decorator.js';
+
 @Controller('activities/:activityId/messages')
 @UseGuards(AuthGuard)
 export class ChatController {
@@ -39,6 +41,7 @@ export class ChatController {
   }
 
   @Post()
+  @RateLimit({ points: 60, durationSeconds: 60 })
   @HttpCode(HttpStatus.CREATED)
   @UsePipes(new ValidationPipe({ transform: true, whitelist: true }))
   async sendMessage(

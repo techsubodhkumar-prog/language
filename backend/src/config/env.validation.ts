@@ -6,6 +6,7 @@ export interface EnvironmentVariables {
   SUPABASE_URL?: string;
   SUPABASE_ANON_KEY?: string;
   SUPABASE_JWT_SECRET?: string;
+  CORS_ORIGIN?: string;
 }
 
 export function validateEnv(
@@ -39,5 +40,6 @@ export function validateEnv(
     SUPABASE_URL: config.SUPABASE_URL as string | undefined,
     SUPABASE_ANON_KEY: config.SUPABASE_ANON_KEY as string | undefined,
     SUPABASE_JWT_SECRET: config.SUPABASE_JWT_SECRET as string | undefined,
+    CORS_ORIGIN: (config.CORS_ORIGIN as string | undefined) ?? '*',
   };
 }

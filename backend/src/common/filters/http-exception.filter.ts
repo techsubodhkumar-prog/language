@@ -14,6 +14,7 @@ export interface ApiErrorResponse {
   path: string;
   message: string | string[];
   error: string;
+  requestId?: string;
 }
 
 @Catch()
@@ -23,7 +24,9 @@ export class HttpExceptionFilter implements ExceptionFilter {
   catch(exception: unknown, host: ArgumentsHost) {
     const ctx = host.switchToHttp();
     const response = ctx.getResponse<Response>();
-    const request = ctx.getRequest<Request>();
+    const request = ctx.getRequest<Request & { id?: string }>();
+    const requestId =
+      request.id ?? (request.headers['x-request-id'] as string | undefined);
 
     const status =
       exception instanceof HttpException
@@ -43,13 +46,20 @@ export class HttpExceptionFilter implements ExceptionFilter {
         message = (body.message as string | string[]) ?? exception.message;
         error = (body.error as string) ?? exception.name;
       }
-    } else if (exception instanceof Error) {
-      message = exception.message;
+    } else {
+      // Unhandled / database errors must NEVER leak stack traces or query details to clients
+      message = 'Internal server error';
+      error = 'Internal Server Error';
     }
 
     if (status >= HttpStatus.INTERNAL_SERVER_ERROR) {
+      const rawError =
+        exception instanceof Error
+          ? `${exception.name}: ${exception.message}\n${exception.stack}`
+          : JSON.stringify(exception);
+
       this.logger.error(
-        `[${request.method}] ${request.url} - ${status} - ${JSON.stringify(message)}`,
+        `[${requestId ?? 'no-req-id'}] [${request.method}] ${request.originalUrl ?? request.url} - ${status} - Internal Error: ${rawError}`,
       );
     }
 
@@ -59,6 +69,7 @@ export class HttpExceptionFilter implements ExceptionFilter {
       path: request.originalUrl ?? request.url,
       message,
       error,
+      ...(requestId ? { requestId } : {}),
     };
 
     response.status(status).json(payload);

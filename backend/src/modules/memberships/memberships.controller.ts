@@ -12,12 +12,15 @@ import { CurrentUser } from '../auth/current-user.decorator.js';
 import type { AuthenticatedUser } from '../auth/auth.types.js';
 import { MembershipsService } from './memberships.service.js';
 
+import { RateLimit } from '../../common/decorators/rate-limit.decorator.js';
+
 @Controller()
 @UseGuards(AuthGuard)
 export class MembershipsController {
   constructor(private readonly memberships: MembershipsService) {}
 
   @Post('activities/:id/join')
+  @RateLimit({ points: 30, durationSeconds: 60 })
   join(
     @Param('id', new ParseUUIDPipe()) id: string,
     @CurrentUser() user: AuthenticatedUser,
@@ -55,6 +58,7 @@ export class MembershipsController {
   }
 
   @Post('activities/:activityId/requests/:membershipId/approve')
+  @RateLimit({ points: 30, durationSeconds: 60 })
   approve(
     @Param('activityId', new ParseUUIDPipe()) activityId: string,
     @Param('membershipId', new ParseUUIDPipe()) membershipId: string,
@@ -64,6 +68,7 @@ export class MembershipsController {
   }
 
   @Post('activities/:activityId/requests/:membershipId/reject')
+  @RateLimit({ points: 30, durationSeconds: 60 })
   reject(
     @Param('activityId', new ParseUUIDPipe()) activityId: string,
     @Param('membershipId', new ParseUUIDPipe()) membershipId: string,

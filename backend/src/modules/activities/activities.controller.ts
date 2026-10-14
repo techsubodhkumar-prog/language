@@ -18,6 +18,7 @@ import { ActivitiesService } from './activities.service.js';
 import { CreateActivityDto } from './dto/create-activity.dto.js';
 import { ListActivitiesDto } from './dto/list-activities.dto.js';
 import { UpdateActivityDto } from './dto/update-activity.dto.js';
+import { RateLimit } from '../../common/decorators/rate-limit.decorator.js';
 
 @Controller('activities')
 @UseGuards(AuthGuard)
@@ -32,6 +33,7 @@ export class ActivitiesController {
   constructor(private readonly activities: ActivitiesService) {}
 
   @Post()
+  @RateLimit({ points: 20, durationSeconds: 60 })
   create(
     @CurrentUser() user: AuthenticatedUser,
     @Body() dto: CreateActivityDto,

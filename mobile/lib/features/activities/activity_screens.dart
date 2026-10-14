@@ -463,6 +463,7 @@ class _ActivityDetailsScreenState extends State<ActivityDetailsScreen> {
     String path, {
     Object? body,
   }) async {
+    if (membershipBusy) return;
     setState(() {
       membershipBusy = true;
       membershipError = null;
@@ -1009,6 +1010,7 @@ class _ActivityFormScreenState extends State<ActivityFormScreen> {
   }
 
   Future<void> _save() async {
+    if (saving) return;
     if (!(formKey.currentState?.validate() ?? false)) return;
     final start = startsAt;
     final end = endsAt;

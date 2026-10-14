@@ -30,6 +30,14 @@ describe('Activity Discovery API (e2e)', () => {
     }).compile();
 
     app = moduleFixture.createNestApplication();
+    app.use((_req: unknown, res: import('express').Response, next: import('express').NextFunction) => {
+      res.removeHeader('X-Powered-By');
+      res.setHeader('X-Content-Type-Options', 'nosniff');
+      res.setHeader('X-Frame-Options', 'DENY');
+      res.setHeader('X-XSS-Protection', '0');
+      res.setHeader('Referrer-Policy', 'strict-origin-when-cross-origin');
+      next();
+    });
     app.setGlobalPrefix('api/v1');
     app.useGlobalFilters(new HttpExceptionFilter());
     await app.init();
@@ -46,6 +54,18 @@ describe('Activity Discovery API (e2e)', () => {
         expect(typeof res.body.timestamp).toBe('string');
         expect(typeof res.body.uptimeSeconds).toBe('number');
       });
+  });
+
+  it('/api/v1/health/ready (GET) reports readiness status and returns correlation ID', async () => {
+    const res = await request(app.getHttpServer()).get('/api/v1/health/ready');
+    expect([200, 503]).toContain(res.status);
+    expect(res.headers['x-request-id']).toBeDefined();
+    expect(res.headers['x-content-type-options']).toBe('nosniff');
+    expect(res.headers['x-frame-options']).toBe('DENY');
+    if (res.status === 200) {
+      expect(res.body.status).toBe('ok');
+      expect(res.body.database).toBe('connected');
+    }
   });
 
   it('/api/v1/unknown (GET) returns standardized error response', () => {

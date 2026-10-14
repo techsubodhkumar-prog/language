@@ -6,6 +6,8 @@
 *.key
 *.keystore
 *.jks
+key.properties
+**/key.properties
 credentials.json
 service-account*.json
 

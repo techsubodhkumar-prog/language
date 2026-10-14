@@ -52,6 +52,18 @@ class _AuthFlowState extends State<AuthFlow> {
         });
       }
     } catch (e) {
+      if (e is ApiException && e.statusCode == 401) {
+        // Expired or revoked session: sign out cleanly to show sign-in screen
+        await Supabase.instance.client.auth.signOut();
+        if (mounted) {
+          setState(() {
+            session = null;
+            checkingProfile = false;
+            profileError = null;
+          });
+        }
+        return;
+      }
       final missingProfile = e is ApiException && e.statusCode == 404;
       if (mounted) {
         setState(() {

@@ -82,8 +82,14 @@ export class DatabaseService implements OnModuleDestroy {
 
   async onModuleDestroy() {
     if (this.pool) {
-      await this.pool.end();
+      const p = this.pool;
+      this.pool = null;
+      await p.end();
       this.logger.log('PostgreSQL connection pool closed');
     }
+  }
+
+  async onApplicationShutdown() {
+    await this.onModuleDestroy();
   }
 }

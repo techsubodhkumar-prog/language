@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
@@ -10,23 +11,35 @@ const _defaultSupabaseUrl = 'https://viiwqzyrjhetpsypgpdh.supabase.co';
 const _defaultSupabaseAnonKey =
     'sb_publishable_pWGsGud7sFXaNSTLtlpA7g_SqquD0j1';
 
+// In release builds, never fall back to hardcoded development credentials or URLs
 const _supabaseUrl = String.fromEnvironment(
   'SUPABASE_URL',
-  defaultValue: _defaultSupabaseUrl,
+  defaultValue: kReleaseMode ? '' : _defaultSupabaseUrl,
 );
 const _supabaseAnonKey = String.fromEnvironment(
   'SUPABASE_ANON_KEY',
-  defaultValue: _defaultSupabaseAnonKey,
+  defaultValue: kReleaseMode ? '' : _defaultSupabaseAnonKey,
 );
-const _apiBaseUrl = String.fromEnvironment(
-  'API_BASE_URL',
-  defaultValue: 'http://localhost:3000/api/v1',
-);
+
+const _defaultDevApiBaseUrl = 'http://localhost:3000/api/v1';
+
+String resolveApiBaseUrl() {
+  const envUrl = String.fromEnvironment('API_BASE_URL');
+  if (envUrl.isNotEmpty) return envUrl;
+  if (kReleaseMode) return '';
+  if (!kIsWeb && defaultTargetPlatform == TargetPlatform.android) {
+    return 'http://10.0.2.2:3000/api/v1';
+  }
+  return _defaultDevApiBaseUrl;
+}
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  final apiBaseUrl = resolveApiBaseUrl();
   final configured =
-      _supabaseUrl.startsWith('https://') && _supabaseAnonKey.isNotEmpty;
+      _supabaseUrl.startsWith('https://') &&
+      _supabaseAnonKey.isNotEmpty &&
+      (!kReleaseMode || apiBaseUrl.startsWith('https://'));
   if (configured) {
     await Supabase.initialize(
       url: _supabaseUrl,
@@ -36,7 +49,7 @@ Future<void> main() async {
       ),
     );
   }
-  runApp(ActivityDiscoveryApp(configured: configured, apiBaseUrl: _apiBaseUrl));
+  runApp(ActivityDiscoveryApp(configured: configured, apiBaseUrl: apiBaseUrl));
 }
 
 class _SecureSessionStorage extends LocalStorage {
@@ -64,7 +77,7 @@ class ActivityDiscoveryApp extends StatelessWidget {
   const ActivityDiscoveryApp({
     super.key,
     this.configured = false,
-    this.apiBaseUrl = _apiBaseUrl,
+    this.apiBaseUrl = _defaultDevApiBaseUrl,
   });
 
   final bool configured;

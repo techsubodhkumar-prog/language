@@ -185,4 +185,11 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
       this.server.to(room).emit('message_created', message);
     }
   }
+
+  async onApplicationShutdown(): Promise<void> {
+    if (this.server) {
+      this.logger.log('Gracefully closing Socket.IO connections...');
+      await this.server.close();
+    }
+  }
 }
