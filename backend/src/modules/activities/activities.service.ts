@@ -5,6 +5,7 @@ import {
   HttpException,
   InternalServerErrorException,
   Injectable,
+  Logger,
   NotFoundException,
 } from '@nestjs/common';
 import type { QueryResultRow } from 'pg';
@@ -88,6 +89,8 @@ function mapActivity(row: ActivityRow, isHost = false) {
 
 @Injectable()
 export class ActivitiesService {
+  private readonly logger = new Logger(ActivitiesService.name);
+
   constructor(
     private readonly database: DatabaseService,
     private readonly notificationsService?: NotificationsService,
@@ -193,7 +196,55 @@ export class ActivitiesService {
           dto.joinPolicy ?? 'approval',
         ],
       );
-      return this.getById(result.rows[0].activity_id, user);
+      const created = await this.getById(result.rows[0].activity_id, user);
+
+      // Seed initial message into group chat if message / description provided
+      if (dto.description?.trim()) {
+        try {
+          await this.database.query(
+            'INSERT INTO activity_messages (activity_id, sender_id, content) VALUES ($1, $2, $3)',
+            [created.activityId, hostId, dto.description.trim()],
+          );
+        } catch (e) {
+          this.logger.warn(`Could not seed initial chat message: ${(e as Error).message}`);
+        }
+      }
+
+      // Broadcast notifications to users with matching domain / interests
+      if (this.notificationsService) {
+        try {
+          const matchingUsers = await this.database.query<{ user_id: string }>(
+            `SELECT DISTINCT p.user_id
+             FROM profiles p
+             JOIN user_interests ui ON ui.user_id = p.user_id
+             JOIN interests i ON i.interest_id = ui.interest_id
+             WHERE (ui.interest_id = $1 OR i.category = (SELECT category FROM interests WHERE interest_id = $1))
+               AND p.user_id != $2
+             LIMIT 50`,
+            [dto.categoryId, hostId],
+          );
+          for (const match of matchingUsers.rows) {
+            await this.notificationsService
+              .createNotification({
+                recipientProfileId: match.user_id,
+                type: 'system',
+                title: `New ${created.category}: ${created.title}`,
+                message: `${created.hostName} created a new ${created.category} activity at ${created.locationName}. Tap to join!`,
+                activityId: created.activityId,
+                data: {
+                  activityId: created.activityId,
+                  category: created.category,
+                  location: created.locationName,
+                },
+              })
+              .catch(() => {});
+          }
+        } catch (e) {
+          this.logger.warn(`Could not broadcast activity notifications: ${(e as Error).message}`);
+        }
+      }
+
+      return created;
     } catch (error) {
       this.rethrowDatabaseConstraint(error);
     }

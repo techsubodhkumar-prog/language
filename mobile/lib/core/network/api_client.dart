@@ -18,6 +18,13 @@ class ApiClient {
   final http.Client _client;
 
   Future<dynamic> request(String method, String path, {Object? body}) async {
+    try {
+      final session = Supabase.instance.client.auth.currentSession;
+      if (session != null && session.isExpired) {
+        await Supabase.instance.client.auth.refreshSession();
+      }
+    } catch (_) {}
+
     final token = Supabase.instance.client.auth.currentSession?.accessToken;
     final response = await _client.send(
       http.Request(method, Uri.parse('$baseUrl$path'))

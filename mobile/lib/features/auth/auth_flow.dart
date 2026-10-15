@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../core/network/api_client.dart';
 import '../activities/activity_screens.dart';
+import '../main/main_navigation_shell.dart';
 import '../notifications/notifications_screen.dart';
 import '../profile/profile_screen.dart';
 
@@ -86,11 +88,19 @@ class _AuthFlowState extends State<AuthFlow> {
         message: profileError!,
         currentUrl: api.baseUrl,
         onRetry: _checkProfile,
-        onUpdateUrl: (newUrl) {
-          setState(() {
-            api.baseUrl = newUrl;
-          });
-          _checkProfile();
+        onUpdateUrl: (newUrl) async {
+          try {
+            await const FlutterSecureStorage().write(
+              key: 'activity_discovery_api_base_url',
+              value: newUrl,
+            );
+          } catch (_) {}
+          if (mounted) {
+            setState(() {
+              api.baseUrl = newUrl;
+            });
+            _checkProfile();
+          }
         },
         onSignOut: () async {
           await Supabase.instance.client.auth.signOut();
@@ -98,7 +108,18 @@ class _AuthFlowState extends State<AuthFlow> {
       );
     }
     return hasProfile
-        ? HomeScreen(api: api)
+        ? MainNavigationShell(
+            api: api,
+            onSignOut: () async {
+              await Supabase.instance.client.auth.signOut();
+              if (mounted) {
+                setState(() {
+                  session = null;
+                  hasProfile = false;
+                });
+              }
+            },
+          )
         : OnboardingScreen(
             api: api,
             onComplete: () => setState(() => hasProfile = true),
@@ -390,92 +411,207 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
     }
   }
 
+  final _searchController = TextEditingController();
+  String _search = '';
+  String? _selectedCategory;
+
   @override
   void dispose() {
     _name.dispose();
     _bio.dispose();
+    _searchController.dispose();
     super.dispose();
   }
 
   @override
-  Widget build(BuildContext context) => Scaffold(
-    appBar: AppBar(title: const Text('Set up your profile')),
-    body: loading
-        ? const Center(child: CircularProgressIndicator())
-        : interests.isEmpty
-        ? _RetryScreen(
-            message: error ?? 'No interests are available.',
-            onRetry: _load,
-          )
-        : ListView(
-            padding: const EdgeInsets.all(20),
-            children: [
-              Text(
-                'A little about you',
-                style: Theme.of(context).textTheme.titleLarge,
+  Widget build(BuildContext context) {
+    if (loading) {
+      return const Scaffold(body: Center(child: CircularProgressIndicator()));
+    }
+    if (interests.isEmpty) {
+      return Scaffold(
+        body: _RetryScreen(
+          message: error ?? 'No interests are available.',
+          onRetry: _load,
+        ),
+      );
+    }
+
+    // Extract categories
+    final categories = <String>{};
+    for (final item in interests) {
+      final cat = (item['category'] as String?)?.trim();
+      if (cat != null && cat.isNotEmpty) categories.add(cat);
+    }
+    final sortedCategories = categories.toList()..sort();
+
+    // Filtered interests
+    final filteredInterests = interests.where((item) {
+      final name = (item['name'] as String?)?.toLowerCase() ?? '';
+      final cat = (item['category'] as String?) ?? '';
+      if (_selectedCategory != null && cat != _selectedCategory) return false;
+      if (_search.isNotEmpty && !name.contains(_search.toLowerCase()))
+        return false;
+      return true;
+    }).toList();
+
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text('Set up your profile'),
+        actions: [
+          Padding(
+            padding: const EdgeInsets.only(right: 16),
+            child: Center(
+              child: Text(
+                '${selected.length} selected',
+                style: const TextStyle(fontWeight: FontWeight.bold),
               ),
-              const SizedBox(height: 16),
-              TextField(
-                controller: _name,
-                maxLength: 50,
-                textCapitalization: TextCapitalization.words,
-                decoration: const InputDecoration(
-                  labelText: 'Display name',
-                  border: OutlineInputBorder(),
+            ),
+          ),
+        ],
+      ),
+      body: ListView(
+        padding: const EdgeInsets.all(20),
+        children: [
+          Text(
+            'A little about you',
+            style: Theme.of(context).textTheme.titleLarge,
+          ),
+          const SizedBox(height: 16),
+          TextField(
+            controller: _name,
+            maxLength: 50,
+            textCapitalization: TextCapitalization.words,
+            decoration: const InputDecoration(
+              labelText: 'Display name',
+              border: OutlineInputBorder(),
+            ),
+          ),
+          const SizedBox(height: 12),
+          TextField(
+            controller: _bio,
+            maxLength: 300,
+            maxLines: 2,
+            decoration: const InputDecoration(
+              labelText: 'Bio (optional)',
+              border: OutlineInputBorder(),
+            ),
+          ),
+          const SizedBox(height: 20),
+          Text(
+            'Choose your domain interests',
+            style: Theme.of(context).textTheme.titleLarge,
+          ),
+          const SizedBox(height: 4),
+          const Text(
+            'Select at least one. We use this to match activities & teammates.',
+          ),
+          if (interests.length > 8) ...[
+            const SizedBox(height: 12),
+            // Search bar
+            TextField(
+              controller: _searchController,
+              onChanged: (v) => setState(() => _search = v.trim()),
+              decoration: InputDecoration(
+                hintText:
+                    'Search interests (e.g. Football, Trekking, Cinema)...',
+                prefixIcon: const Icon(Icons.search),
+                suffixIcon: _search.isNotEmpty
+                    ? IconButton(
+                        icon: const Icon(Icons.clear),
+                        onPressed: () {
+                          _searchController.clear();
+                          setState(() => _search = '');
+                        },
+                      )
+                    : null,
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(10),
                 ),
+                isDense: true,
               ),
-              const SizedBox(height: 12),
-              TextField(
-                controller: _bio,
-                maxLength: 300,
-                maxLines: 3,
-                decoration: const InputDecoration(
-                  labelText: 'Bio (optional)',
-                  border: OutlineInputBorder(),
-                ),
-              ),
-              const SizedBox(height: 20),
-              Text(
-                'Choose your interests',
-                style: Theme.of(context).textTheme.titleLarge,
-              ),
-              const SizedBox(height: 4),
-              const Text('Select at least one. You can change these later.'),
-              const SizedBox(height: 12),
-              Wrap(
-                spacing: 8,
-                runSpacing: 4,
-                children: interests.map((item) {
-                  final id = item['interestId'] as String;
-                  return FilterChip(
-                    label: Text(item['name'] as String),
-                    selected: selected.contains(id),
-                    onSelected: (value) => setState(() {
-                      value ? selected.add(id) : selected.remove(id);
-                    }),
-                  );
-                }).toList(),
-              ),
-              if (error != null)
-                Padding(
-                  padding: const EdgeInsets.only(top: 12),
-                  child: Text(
-                    error!,
-                    style: TextStyle(
-                      color: Theme.of(context).colorScheme.error,
+            ),
+            const SizedBox(height: 12),
+
+            // Category filter pills
+            SingleChildScrollView(
+              scrollDirection: Axis.horizontal,
+              child: Row(
+                children: [
+                  ChoiceChip(
+                    label: const Text('All Categories'),
+                    selected: _selectedCategory == null,
+                    onSelected: (_) => setState(() => _selectedCategory = null),
+                  ),
+                  const SizedBox(width: 8),
+                  ...sortedCategories.map(
+                    (c) => Padding(
+                      padding: const EdgeInsets.only(right: 8),
+                      child: ChoiceChip(
+                        label: Text(c),
+                        selected: _selectedCategory == c,
+                        onSelected: (_) => setState(() {
+                          _selectedCategory = _selectedCategory == c ? null : c;
+                        }),
+                      ),
                     ),
                   ),
-                ),
-              const SizedBox(height: 20),
-              FilledButton(
-                onPressed: saving ? null : _save,
-                child: saving
-                    ? const CircularProgressIndicator()
-                    : const Text('Save and continue'),
+                ],
               ),
-            ],
+            ),
+          ],
+          const SizedBox(height: 14),
+
+          // Interests Wrap
+          Wrap(
+            spacing: 8,
+            runSpacing: 4,
+            children: filteredInterests.map((item) {
+              final id = item['interestId'] as String;
+              final name = item['name'] as String;
+              final isChosen = selected.contains(id);
+              return FilterChip(
+                label: Text(name),
+                selected: isChosen,
+                onSelected: (value) => setState(() {
+                  value ? selected.add(id) : selected.remove(id);
+                }),
+              );
+            }).toList(),
           ),
-  );
+
+          if (error != null)
+            Padding(
+              padding: const EdgeInsets.only(top: 12),
+              child: Text(
+                error!,
+                style: TextStyle(color: Theme.of(context).colorScheme.error),
+              ),
+            ),
+          const SizedBox(height: 24),
+          FilledButton(
+            onPressed: saving ? null : _save,
+            style: FilledButton.styleFrom(
+              padding: const EdgeInsets.symmetric(vertical: 14),
+            ),
+            child: saving
+                ? const SizedBox(
+                    width: 20,
+                    height: 20,
+                    child: CircularProgressIndicator(
+                      color: Colors.white,
+                      strokeWidth: 2,
+                    ),
+                  )
+                : const Text(
+                    'Save and continue',
+                    style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                  ),
+          ),
+        ],
+      ),
+    );
+  }
 }
 
 class HomeScreen extends StatefulWidget {
@@ -678,12 +814,20 @@ class _RetryScreenState extends State<_RetryScreen> {
               runSpacing: 4,
               children: [
                 ActionChip(
+                  avatar: const Icon(Icons.wifi, size: 16),
+                  label: const Text('Wi-Fi: 10.0.19.45'),
+                  onPressed: () =>
+                      controller.text = 'http://10.0.19.45:3000/api/v1',
+                ),
+                ActionChip(
+                  avatar: const Icon(Icons.usb, size: 16),
                   label: const Text('localhost:3000 (USB)'),
                   onPressed: () =>
                       controller.text = 'http://localhost:3000/api/v1',
                 ),
                 ActionChip(
-                  label: const Text('10.0.2.2:3000 (Emulator)'),
+                  avatar: const Icon(Icons.phone_android, size: 16),
+                  label: const Text('10.0.2.2 (Emulator)'),
                   onPressed: () =>
                       controller.text = 'http://10.0.2.2:3000/api/v1',
                 ),
@@ -754,6 +898,20 @@ class _RetryScreenState extends State<_RetryScreen> {
                   style: const TextStyle(fontSize: 12, fontFamily: 'monospace'),
                 ),
               ),
+              if (widget.currentUrl != null &&
+                  !widget.currentUrl!.contains('10.0.19.45') &&
+                  widget.onUpdateUrl != null) ...[
+                const SizedBox(height: 10),
+                SizedBox(
+                  width: double.infinity,
+                  child: FilledButton.tonalIcon(
+                    onPressed: () =>
+                        widget.onUpdateUrl!('http://10.0.19.45:3000/api/v1'),
+                    icon: const Icon(Icons.wifi),
+                    label: const Text('Switch to Wi-Fi (10.0.19.45)'),
+                  ),
+                ),
+              ],
             ],
             const SizedBox(height: 20),
             SizedBox(

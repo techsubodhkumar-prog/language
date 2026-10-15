@@ -23,6 +23,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
   bool _loading = true;
   bool _saving = false;
   String? _errorMessage;
+  final _searchController = TextEditingController();
+  String _search = '';
+  String? _selectedCategory;
 
   @override
   void initState() {
@@ -124,6 +127,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
   void dispose() {
     _displayNameController.dispose();
     _bioController.dispose();
+    _searchController.dispose();
     super.dispose();
   }
 
@@ -195,31 +199,128 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       style: Theme.of(context).textTheme.titleLarge,
                     ),
                     const SizedBox(height: 6),
-                    const Text(
-                      'Select at least one to discover relevant activities.',
+                    Row(
+                      children: [
+                        const Expanded(
+                          child: Text(
+                            'Select interests to match activities & teammates.',
+                          ),
+                        ),
+                        Text(
+                          '${_selectedInterests.length} selected',
+                          style: const TextStyle(fontWeight: FontWeight.bold),
+                        ),
+                      ],
                     ),
+                    if (_availableInterests.length > 8) ...[
+                      const SizedBox(height: 12),
+                      // Search box
+                      TextField(
+                        controller: _searchController,
+                        onChanged: (v) => setState(() => _search = v.trim()),
+                        decoration: InputDecoration(
+                          hintText:
+                              'Search interests (e.g. Football, Trekking)...',
+                          prefixIcon: const Icon(Icons.search),
+                          suffixIcon: _search.isNotEmpty
+                              ? IconButton(
+                                  icon: const Icon(Icons.clear),
+                                  onPressed: () {
+                                    _searchController.clear();
+                                    setState(() => _search = '');
+                                  },
+                                )
+                              : null,
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(10),
+                          ),
+                          isDense: true,
+                        ),
+                      ),
+                      const SizedBox(height: 10),
+
+                      // Category pills
+                      Builder(
+                        builder: (context) {
+                          final categories = <String>{};
+                          for (final item in _availableInterests) {
+                            final cat = (item['category'] as String?)?.trim();
+                            if (cat != null && cat.isNotEmpty)
+                              categories.add(cat);
+                          }
+                          final sortedCategories = categories.toList()..sort();
+
+                          return SingleChildScrollView(
+                            scrollDirection: Axis.horizontal,
+                            child: Row(
+                              children: [
+                                ChoiceChip(
+                                  label: const Text('All Categories'),
+                                  selected: _selectedCategory == null,
+                                  onSelected: (_) =>
+                                      setState(() => _selectedCategory = null),
+                                ),
+                                const SizedBox(width: 8),
+                                ...sortedCategories.map(
+                                  (c) => Padding(
+                                    padding: const EdgeInsets.only(right: 8),
+                                    child: ChoiceChip(
+                                      label: Text(c),
+                                      selected: _selectedCategory == c,
+                                      onSelected: (_) => setState(() {
+                                        _selectedCategory =
+                                            _selectedCategory == c ? null : c;
+                                      }),
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          );
+                        },
+                      ),
+                    ],
                     const SizedBox(height: 12),
-                    Wrap(
-                      spacing: 8,
-                      runSpacing: 6,
-                      children: _availableInterests.map((item) {
-                        final id = item['interestId'] as String;
-                        final name = item['name'] as String;
-                        final isSelected = _selectedInterests.contains(id);
-                        return FilterChip(
-                          label: Text(name),
-                          selected: isSelected,
-                          onSelected: (selected) {
-                            setState(() {
-                              if (selected) {
-                                _selectedInterests.add(id);
-                              } else {
-                                _selectedInterests.remove(id);
-                              }
-                            });
-                          },
+
+                    // Filtered Wrap
+                    Builder(
+                      builder: (context) {
+                        final filtered = _availableInterests.where((item) {
+                          final name =
+                              (item['name'] as String?)?.toLowerCase() ?? '';
+                          final cat = (item['category'] as String?) ?? '';
+                          if (_selectedCategory != null &&
+                              cat != _selectedCategory)
+                            return false;
+                          if (_search.isNotEmpty &&
+                              !name.contains(_search.toLowerCase()))
+                            return false;
+                          return true;
+                        }).toList();
+
+                        return Wrap(
+                          spacing: 8,
+                          runSpacing: 6,
+                          children: filtered.map((item) {
+                            final id = item['interestId'] as String;
+                            final name = item['name'] as String;
+                            final isSelected = _selectedInterests.contains(id);
+                            return FilterChip(
+                              label: Text(name),
+                              selected: isSelected,
+                              onSelected: (selected) {
+                                setState(() {
+                                  if (selected) {
+                                    _selectedInterests.add(id);
+                                  } else {
+                                    _selectedInterests.remove(id);
+                                  }
+                                });
+                              },
+                            );
+                          }).toList(),
                         );
-                      }).toList(),
+                      },
                     ),
                     if (_errorMessage != null)
                       Padding(

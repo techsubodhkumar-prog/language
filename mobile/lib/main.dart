@@ -28,14 +28,19 @@ String resolveApiBaseUrl() {
   if (envUrl.isNotEmpty) return envUrl;
   if (kReleaseMode) return '';
   if (!kIsWeb && defaultTargetPlatform == TargetPlatform.android) {
-    return 'http://10.0.2.2:3000/api/v1';
+    return 'http://10.0.19.45:3000/api/v1';
   }
   return _defaultDevApiBaseUrl;
 }
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  final apiBaseUrl = resolveApiBaseUrl();
+  const storage = FlutterSecureStorage();
+  final savedUrl = await storage.read(key: 'activity_discovery_api_base_url');
+  final resolvedUrl = resolveApiBaseUrl();
+  final apiBaseUrl = (savedUrl != null && savedUrl.isNotEmpty)
+      ? savedUrl
+      : resolvedUrl;
   final configured =
       _supabaseUrl.startsWith('https://') &&
       _supabaseAnonKey.isNotEmpty &&
