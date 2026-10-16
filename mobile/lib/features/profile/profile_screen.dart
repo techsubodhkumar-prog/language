@@ -245,8 +245,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
                           final categories = <String>{};
                           for (final item in _availableInterests) {
                             final cat = (item['category'] as String?)?.trim();
-                            if (cat != null && cat.isNotEmpty)
+                            if (cat != null && cat.isNotEmpty) {
                               categories.add(cat);
+                            }
                           }
                           final sortedCategories = categories.toList()..sort();
 
@@ -290,11 +291,13 @@ class _ProfileScreenState extends State<ProfileScreen> {
                               (item['name'] as String?)?.toLowerCase() ?? '';
                           final cat = (item['category'] as String?) ?? '';
                           if (_selectedCategory != null &&
-                              cat != _selectedCategory)
+                              cat != _selectedCategory) {
                             return false;
+                          }
                           if (_search.isNotEmpty &&
-                              !name.contains(_search.toLowerCase()))
+                              !name.contains(_search.toLowerCase())) {
                             return false;
+                          }
                           return true;
                         }).toList();
 

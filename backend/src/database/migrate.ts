@@ -3,6 +3,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import pg from 'pg';
 import dotenv from 'dotenv';
+import { getDatabaseSslConfig } from './database-ssl.util.js';
 
 dotenv.config();
 
@@ -17,7 +18,15 @@ async function runMigrations() {
     process.exit(1);
   }
 
-  const pool = new Pool({ connectionString: databaseUrl });
+  const sslConfig = getDatabaseSslConfig(databaseUrl);
+  if (sslConfig && !sslConfig.rejectUnauthorized) {
+    console.warn('SECURITY WARNING: Running database migrations with TLS verification disabled.');
+  }
+
+  const pool = new Pool({
+    connectionString: databaseUrl,
+    ...(sslConfig ? { ssl: sslConfig } : {}),
+  });
   const client = await pool.connect();
 
   try {
@@ -45,6 +54,8 @@ async function runMigrations() {
         const sql = fs.readFileSync(path.join(migrationsDir, file), 'utf-8');
         await client.query('BEGIN');
         try {
+          // Acquire transaction-scoped advisory lock to prevent concurrent migration execution
+          await client.query('SELECT pg_advisory_xact_lock(847291)');
           await client.query(sql);
           await client.query('INSERT INTO schema_migrations (version) VALUES ($1)', [file]);
           await client.query('COMMIT');

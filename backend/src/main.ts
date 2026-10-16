@@ -41,14 +41,53 @@ async function bootstrap() {
     }),
   );
 
-  // Environment-specific CORS configuration
-  const allowedOrigins =
-    corsOrigin === '*'
-      ? '*'
-      : corsOrigin.split(',').map((origin) => origin.trim());
+  // Environment-specific secure CORS configuration:
+  // - Requests without Origin header (native mobile apps, curl, server-to-server) are always permitted.
+  // - In production: If explicit domains are listed, enforce them. If '*', block arbitrary web origins with credentials.
+  // - In development / test: Permit all origins for seamless local dev & Flutter Web testing.
+  const isProduction = configService.get<string>('NODE_ENV') === 'production';
+  const hasExplicitOrigins = corsOrigin && corsOrigin !== '*';
+  const allowedList = hasExplicitOrigins
+    ? corsOrigin.split(',').map((origin) => origin.trim().toLowerCase())
+    : [];
 
   app.enableCors({
-    origin: allowedOrigins,
+    origin: (
+      origin: string | undefined,
+      callback: (err: Error | null, allow?: boolean) => void,
+    ) => {
+      // Allow requests with no origin (mobile native apps on Android/iOS, curl, probes)
+      if (!origin) {
+        return callback(null, true);
+      }
+
+      const normalizedOrigin = origin.trim().toLowerCase();
+
+      // Check explicit allowlist
+      if (hasExplicitOrigins) {
+        if (allowedList.includes(normalizedOrigin)) {
+          return callback(null, true);
+        }
+        return callback(
+          new Error(`CORS policy blocked access from origin: ${origin}`),
+        );
+      }
+
+      // If CORS_ORIGIN is '*'
+      if (isProduction) {
+        logger.warn(
+          `CORS blocked cross-origin web request from untrusted origin [${origin}]. Configure explicit CORS_ORIGIN in production.`,
+        );
+        return callback(
+          new Error(
+            'Cross-origin requests from arbitrary web origins are blocked in production when credentials are enabled. Configure explicit CORS_ORIGIN domains.',
+          ),
+        );
+      }
+
+      // Local development and test environments: permit local web origins
+      return callback(null, true);
+    },
     methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
     allowedHeaders: [
       'Content-Type',

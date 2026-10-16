@@ -10,6 +10,15 @@ key.properties
 **/key.properties
 credentials.json
 service-account*.json
+firebase-adminsdk*.json
+**/firebase-adminsdk*.json
+google-services.json
+**/google-services.json
+GoogleService-Info.plist
+**/GoogleService-Info.plist
+*.p8
+*.p12
+*.mobileprovision
 
 # Node & NestJS
 node_modules/

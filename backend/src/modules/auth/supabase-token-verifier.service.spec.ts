@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeEach } from 'vitest';
 import { ConfigService } from '@nestjs/config';
 import { UnauthorizedException } from '@nestjs/common';
-import { SignJWT } from 'jose';
+import { SignJWT, generateKeyPair } from 'jose';
 import { SupabaseTokenVerifierService } from './supabase-token-verifier.service.js';
 
 describe('SupabaseTokenVerifierService', () => {
@@ -35,6 +35,64 @@ describe('SupabaseTokenVerifierService', () => {
     expect(user.userId).toBe('sub-12345-uuid');
     expect(user.email).toBe('user@example.com');
     expect(user.role).toBe('authenticated');
+  });
+
+  it('verifies an ES256 token using JWKS key resolver', async () => {
+    const { privateKey, publicKey } = await generateKeyPair('ES256');
+    const es256Verifier = new SupabaseTokenVerifierService(
+      new ConfigService({
+        SUPABASE_URL: 'https://mock-proj.supabase.co',
+      }),
+    );
+    // Point internal jwks resolver to mock public key
+    (es256Verifier as any).jwks = async () => publicKey;
+
+    const token = await new SignJWT({
+      email: 'ecdsa-user@example.com',
+      role: 'authenticated',
+      aud: 'authenticated',
+    })
+      .setProtectedHeader({ alg: 'ES256' })
+      .setIssuer('https://mock-proj.supabase.co/auth/v1')
+      .setSubject('sub-ecdsa-uuid')
+      .setIssuedAt()
+      .setExpirationTime('1h')
+      .sign(privateKey);
+
+    const user = await es256Verifier.verify(token);
+    expect(user.userId).toBe('sub-ecdsa-uuid');
+    expect(user.email).toBe('ecdsa-user@example.com');
+  });
+
+  it('falls back to Supabase client auth.getUser when JWKS is not configured or bypassed', async () => {
+    const mockClient = {
+      auth: {
+        getUser: async (token: string) => {
+          if (token === 'valid-api-token') {
+            return {
+              data: {
+                user: {
+                  id: 'supabase-api-user-id',
+                  email: 'api-user@example.com',
+                  role: 'authenticated',
+                  app_metadata: {},
+                  user_metadata: {},
+                },
+              },
+              error: null,
+            };
+          }
+          return { data: { user: null }, error: new Error('Invalid token') };
+        },
+      },
+    };
+
+    const clientVerifier = new SupabaseTokenVerifierService(new ConfigService({}));
+    (clientVerifier as any).supabaseClient = mockClient;
+
+    const user = await clientVerifier.verify('valid-api-token');
+    expect(user.userId).toBe('supabase-api-user-id');
+    expect(user.email).toBe('api-user@example.com');
   });
 
   it('rejects an empty or missing token', async () => {

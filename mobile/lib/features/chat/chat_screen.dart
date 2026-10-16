@@ -144,7 +144,7 @@ class _ActivityChatScreenState extends State<ActivityChatScreen> {
 
       final uri = Uri.tryParse(widget.api.baseUrl);
       if (uri == null) return;
-      final serverUrl = '${uri.scheme}://${uri.host}:${uri.port}';
+      final serverUrl = uri.origin;
 
       _socket = io.io(
         serverUrl,

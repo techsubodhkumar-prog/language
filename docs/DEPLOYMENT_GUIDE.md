@@ -41,34 +41,38 @@ The platform consists of:
 
 ## 2. Environment Configuration Reference
 
-### Backend Environment Variables (`backend/.env`)
+### Backend Environment Variables (`backend/.env` or Cloud Dashboard)
 
-| Variable | Required | Description | Example / Safe Placeholder |
-| :--- | :--- | :--- | :--- |
-| `NODE_ENV` | Yes | Runtime environment mode (`development`, `test`, `production`). | `production` |
-| `PORT` | Yes | Port on which the NestJS HTTP & WebSocket server listens. | `3000` |
-| `API_PREFIX` | Yes | Global URL prefix for versioned REST routes. | `api/v1` |
-| `DATABASE_URL` | Yes | PostgreSQL connection string. Use Supabase Transaction Pooler (port 6543) or Session Pooler (port 5432). | `postgresql://postgres.[ref]:[password]@aws-0-[region].pooler.supabase.com:5432/postgres?schema=public` |
-| `SUPABASE_URL` | Yes | The Supabase project base HTTPS URL. | `https://[project-ref].supabase.co` |
-| `SUPABASE_ANON_KEY` | Yes | Supabase anonymous / public publishable key. | `sb_publishable_[key]` |
-| `SUPABASE_JWT_SECRET` | Yes | Supabase JWT Secret used for server-side token signature verification. | `[supabase-jwt-secret-string]` |
-| `CORS_ORIGIN` | Yes | Comma-separated allowlist of allowed web origins, or `*` (mobile-only API). | `https://app.yourdomain.com,https://admin.yourdomain.com` |
-| `FIREBASE_PROJECT_ID` | Optional | Firebase project identifier for server push notifications. | `activity-discovery-prod` |
-| `FIREBASE_CLIENT_EMAIL` | Optional | Service account email for FCM push delivery. | `firebase-adminsdk@[project].iam.gserviceaccount.com` |
-| `FIREBASE_PRIVATE_KEY` | Optional | PEM-encoded private key for FCM service account. | `"-----BEGIN PRIVATE KEY-----\n...\n-----END PRIVATE KEY-----\n"` |
+| Variable | Required | Description | Example / Safe Placeholder | Where to Obtain |
+| :--- | :--- | :--- | :--- | :--- |
+| `NODE_ENV` | Yes | Runtime environment mode (`production` for cloud deployment). | `production` | Set in cloud deployment settings / `render.yaml`. |
+| `PORT` | Yes | Port on which the NestJS HTTP & WebSocket server listens. | `10000` (Render) or `3000` | Automatically injected by Render, Cloud Run, or ALB. |
+| `API_PREFIX` | Yes | Global URL prefix for versioned REST routes. | `api/v1` | Application default configured in codebase. |
+| `DATABASE_URL` | Yes | PostgreSQL connection string. Remote/hosted DB connections automatically negotiate SSL with strict certificate verification (`rejectUnauthorized: true`). | `postgresql://postgres.[ref]:[password]@aws-0-[region].pooler.supabase.com:5432/postgres?schema=public` | Supabase Dashboard -> Project Settings -> Database -> Connection string (URI). Use Session Pooler (`port 5432`) or direct connection for migrations, and Session (`port 5432`) or Transaction (`port 6543`) for application traffic. |
+| `DATABASE_SSL_REJECT_UNAUTHORIZED` | Optional | Set to `false` only if your PostgreSQL host uses self-signed certificates without a custom CA. Defaults to `true` for security. | `true` | Set in cloud deployment environment variables if needed. |
+| `DATABASE_CA_CERT` | Optional | Custom PEM-encoded root CA certificate or path to `.crt`/`.pem` file for private or enterprise PostgreSQL instances. | `"-----BEGIN CERTIFICATE-----\n...\n-----END CERTIFICATE-----\n"` | Provided by internal database administrator. |
+| `SUPABASE_URL` | Yes | The Supabase project base HTTPS URL. | `https://[project-ref].supabase.co` | Supabase Dashboard -> Project Settings -> API -> Project URL. |
+| `SUPABASE_ANON_KEY` | Yes | Supabase anonymous / public publishable key (`sb_publishable_...`). | `sb_publishable_[key]` | Supabase Dashboard -> Project Settings -> API -> Project API keys (`anon` / `public`). |
+| `SUPABASE_JWT_SECRET` | Optional | Legacy symmetric HS256 JWT secret. **Not required** for current Supabase projects using asymmetric ES256 keys, which verify cryptographically via project JWKS (`/.well-known/jwks.json`) and Supabase Auth API. Leave blank or omit. | `[supabase-jwt-secret]` | Supabase Dashboard -> Project Settings -> API -> JWT Settings (leave empty if using JWKS / ES256). |
+| `CORS_ORIGIN` | Yes | Comma-separated allowlist of allowed web origins, or `*` (mobile-first API). In production, web requests with credentials from arbitrary origins are blocked unless listed here; native mobile apps (no Origin header) are always permitted. | `https://app.yourdomain.com` | Custom domain settings or `*` for mobile applications. |
+| `CRON_SECRET` | Optional | Shared authorization token to secure the background activity reminders endpoint (`/api/v1/activities/reminders/process`). | `[random-high-entropy-string]` | Generate with `openssl rand -hex 32` and set on backend and cloud scheduler. |
+| `FIREBASE_PROJECT_ID` | Optional | Firebase project identifier for server push notifications. | `activity-discovery-prod` | Firebase Console -> Project Settings -> General. |
+| `FIREBASE_CLIENT_EMAIL` | Optional | Service account email for FCM push delivery. | `firebase-adminsdk@[project].iam.gserviceaccount.com` | Firebase Console -> Project Settings -> Service accounts. |
+| `FIREBASE_PRIVATE_KEY` | Optional | PEM-encoded private key for FCM service account. | `"-----BEGIN PRIVATE KEY-----\n...\n-----END PRIVATE KEY-----\n"` | Downloaded service account JSON private key. |
+| `FCM_SERVER_KEY` | Optional | Alternative FCM API key or JSON config string. | `[server-key]` | Firebase Console -> Cloud Messaging. |
 
-> [!WARNING]
-> Never set `CORS_ORIGIN=*` in production environments if web browser clients access authenticated administrative endpoints. For mobile native apps, incoming requests without Origin headers are permitted by default.
+> [!NOTE]
+> Supabase projects generated in 2024+ use asymmetric ES256 signing keys. The backend automatically fetches and caches the project's public keys from `${SUPABASE_URL}/auth/v1/.well-known/jwks.json`, guaranteeing high-performance local cryptographic verification without needing a placeholder JWT secret.
 
 ### Mobile Flutter Build Definitions (`--dart-define`)
 
-Release builds should inject runtime configuration via compile-time defines:
+Release builds enforce explicit HTTPS URLs and reject `localhost` or local IPs:
 
 ```bash
 flutter build apk --release \
-  --dart-define=API_BASE_URL=https://api.yourdomain.com/api/v1 \
-  --dart-define=SUPABASE_URL=https://[project-ref].supabase.co \
-  --dart-define=SUPABASE_ANON_KEY=sb_publishable_[key]
+  --dart-define=API_BASE_URL=https://activity-discovery-backend.onrender.com/api/v1 \
+  --dart-define=SUPABASE_URL=https://viiwqzyrjhetpsypgpdh.supabase.co \
+  --dart-define=SUPABASE_ANON_KEY=sb_publishable_pWGsGud7sFXaNSTLtlpA7g_SqquD0j1
 ```
 
 ---
@@ -83,8 +87,9 @@ CREATE EXTENSION IF NOT EXISTS postgis;
 
 ### 2. Connection Pooling Configuration
 When deploying against Supabase:
-- **Port 5432 (Session Mode)**: Ideal for persistent server instances with moderate connection counts (5–20 connections per server container).
-- **Port 6543 (Transaction Mode)**: Ideal for serverless or autoscaling environments. Note that prepared statements are not supported in transaction mode.
+- **Port 5432 (Session Mode / Direct Connection)**: **MANDATORY for DDL migrations**. Session mode retains connection state for atomic DDL execution. Also recommended for persistent server instances (5–20 connections per server container).
+- **Port 6543 (Transaction Mode)**: Suitable for runtime application queries in serverless or horizontal autoscaling environments. *Do not run DDL migrations via port 6543.*
+- **SSL / TLS Verification**: The backend strictly validates server TLS certificates against system root CAs (`rejectUnauthorized: true`). Supabase certificates are issued by trusted root CAs (Google Trust Services / DigiCert / Let's Encrypt). If using a private enterprise database, attach `DATABASE_CA_CERT`.
 
 ### 3. Row Level Security & Table Isolation
 - All domain tables (`users`, `activities`, `activity_memberships`, `messages`, `notifications`, etc.) are owned and accessed exclusively by the backend application via `DATABASE_URL`.
@@ -94,22 +99,25 @@ When deploying against Supabase:
 
 ## 4. Database Migrations & Seeding
 
-Migrations are located in `backend/src/database/migrations/` and run sequentially:
-- `001_initial_schema.sql`: Users, interest taxonomy, user interests.
-- `002_activities_and_locations.sql`: Activities, PostGIS spatial point, GiST index, status checks.
-- `003_memberships_and_approvals.sql`: Activity memberships, unique user/activity constraint, role and approval status.
-- `004_messages_and_chat.sql`: Real-time chat messages, indices for activity-based pagination.
-- `005_notifications_and_reminders.sql`: Notifications, push tokens, notification idempotency and unread counts.
+Migrations are located in `backend/migrations/` and run sequentially:
+- `001_create_profiles_and_interests.sql`: Users, interest taxonomy, user interests.
+- `002_create_activities.sql`: Activities, PostGIS spatial point (`location_point`), GiST index, status checks.
+- `003_create_activity_memberships.sql`: Activity memberships, unique user/activity constraint, role and approval status.
+- `004_create_activity_messages.sql`: Real-time chat messages, indices for activity-based pagination.
+- `005_create_notifications.sql`: In-app notifications, FCM device tokens, notification idempotency and unread counts.
 
-### Running Migrations
-To apply pending migrations on production:
-```bash
-cd backend
-npm run db:migrate
-```
+### Safe Migration Execution
+Migrations are idempotent and protected by transaction-level advisory locks (`pg_advisory_xact_lock(847291)`):
+- If multiple containers deploy simultaneously, only one instance applies pending migrations while others wait safely.
+- Each migration is executed inside an atomic transaction (`BEGIN ... COMMIT`) and recorded in `schema_migrations`.
+- To apply pending migrations on production:
+  ```bash
+  cd backend
+  npm run db:migrate
+  ```
 
 ### Seeding Initial Taxonomy
-To seed default activity categories and interests:
+To seed default activity categories and interests (270+ curated activities):
 ```bash
 cd backend
 npm run db:seed
@@ -122,7 +130,15 @@ npm run db:seed
 
 ## 5. Backend Deployment (NestJS)
 
-### Option A: Containerized Deployment (Docker)
+### Option A: Render Cloud Deployment (Recommended)
+
+A declarative `render.yaml` blueprint is included in the project root:
+1. Connect the GitHub repository to [Render](https://render.com).
+2. Create a new **Blueprint** and select `render.yaml`.
+3. In the Render Dashboard, supply the sensitive secrets (`DATABASE_URL`, `SUPABASE_URL`, `SUPABASE_ANON_KEY`).
+4. Render automatically runs the pre-deploy command (`npm run db:migrate`), launches the Node web service on `PORT`, and monitors `/api/v1/health`.
+
+### Option B: Containerized Deployment (Docker)
 
 Create a production container image using multi-stage builds:
 
@@ -142,25 +158,29 @@ ENV NODE_ENV=production
 COPY package*.json ./
 RUN npm ci --omit=dev
 COPY --from=builder /app/dist ./dist
-COPY --from=builder /app/src/database/migrations ./dist/database/migrations
+COPY --from=builder /app/migrations ./migrations
 
 USER node
 EXPOSE 3000
 CMD ["node", "dist/main.js"]
 ```
 
-### Option B: Process Manager (PM2 on Linux VM)
+### Option C: Process Manager (PM2 on Linux VM)
 
 1. Build backend on CI/CD runner:
    ```bash
    npm ci
    npm run build
    ```
-2. Start or reload with PM2:
+2. Run database migrations:
+   ```bash
+   node dist/database/migrate.js
+   ```
+3. Start or reload with PM2:
    ```bash
    pm2 start dist/main.js --name "activity-api" -i max --max-memory-restart 512M
    ```
-3. Enable PM2 systemd startup:
+4. Enable PM2 systemd startup:
    ```bash
    pm2 save
    pm2 startup
@@ -232,8 +252,13 @@ POST /api/v1/activities/reminders/process
 ### Setting Up a Cron Job or Cloud Scheduler
 Run every 15 minutes:
 ```bash
-*/15 * * * * curl -s -X POST https://api.yourdomain.com/api/v1/activities/reminders/process -H "Content-Type: application/json" > /dev/null 2>&1
+*/15 * * * * curl -s -X POST https://api.yourdomain.com/api/v1/activities/reminders/process \
+  -H "Content-Type: application/json" \
+  -H "x-cron-secret: YOUR_CRON_SECRET" > /dev/null 2>&1
 ```
+
+> [!TIP]
+> If `CRON_SECRET` is set in the backend environment variables, all invocations must provide the matching `x-cron-secret: <secret>` or `Authorization: Bearer <secret>` header. If `CRON_SECRET` is unset, requests proceed without token authorization.
 
 Reminders check for activities starting within the next 24 hours, send push notifications to approved participants, and mark the reminder as sent to guarantee idempotency.
 

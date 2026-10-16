@@ -324,12 +324,13 @@ class _PlayScreenState extends State<PlayScreen> {
                 final participants = chat['participantCount'] ?? 1;
                 final capacity = chat['maxParticipants'] ?? 1;
 
-                return Container(
+                return Card(
                   margin: const EdgeInsets.only(bottom: 10),
-                  decoration: BoxDecoration(
-                    color: Colors.white,
+                  elevation: 0,
+                  color: Colors.white,
+                  shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(14),
-                    border: Border.all(color: const Color(0xFFE2E8F0)),
+                    side: const BorderSide(color: Color(0xFFE2E8F0)),
                   ),
                   child: ListTile(
                     contentPadding: const EdgeInsets.symmetric(

@@ -26,6 +26,11 @@ export class RateLimitGuard implements CanActivate {
   constructor(private readonly reflector: Reflector) {}
 
   canActivate(context: ExecutionContext): boolean {
+    // Cloud health and readiness probes must never be rate limited
+    if (context.getClass().name === 'HealthController') {
+      return true;
+    }
+
     const http = context.switchToHttp();
     const req = http.getRequest<Request & { user?: { userId: string } }>();
     const res = http.getResponse<Response>();

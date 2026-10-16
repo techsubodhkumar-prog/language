@@ -3,6 +3,7 @@ import {
   Controller,
   Delete,
   Get,
+  Headers,
   HttpCode,
   HttpStatus,
   Param,
@@ -10,10 +11,12 @@ import {
   Patch,
   Post,
   Query,
+  UnauthorizedException,
   UseGuards,
   UsePipes,
   ValidationPipe,
 } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import { AuthGuard } from '../auth/auth.guard.js';
 import { CurrentUser } from '../auth/current-user.decorator.js';
 import type { AuthenticatedUser } from '../auth/auth.types.js';
@@ -109,11 +112,24 @@ export class NotificationsController {
 
 @Controller('activities/reminders')
 export class ActivityRemindersController {
-  constructor(private readonly notificationsService: NotificationsService) {}
+  constructor(
+    private readonly notificationsService: NotificationsService,
+    private readonly configService: ConfigService,
+  ) {}
 
   @Post('process')
   @HttpCode(HttpStatus.OK)
-  processReminders(): Promise<{ sentCount: number; skippedCount: number }> {
+  processReminders(
+    @Headers('x-cron-secret') cronHeader?: string,
+    @Headers('authorization') authHeader?: string,
+  ): Promise<{ sentCount: number; skippedCount: number }> {
+    const expectedSecret = this.configService.get<string>('CRON_SECRET');
+    if (expectedSecret && expectedSecret.trim().length > 0) {
+      const authBearer = authHeader?.replace(/^Bearer\s+/i, '').trim();
+      if (cronHeader !== expectedSecret && authBearer !== expectedSecret) {
+        throw new UnauthorizedException('Invalid or missing CRON_SECRET.');
+      }
+    }
     return this.notificationsService.processUpcomingReminders();
   }
 }

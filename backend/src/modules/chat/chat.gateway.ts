@@ -30,7 +30,9 @@ interface AuthenticatedSocket extends Socket {
 @WebSocketGateway({
   cors: {
     origin: '*',
+    credentials: true,
   },
+  transports: ['websocket', 'polling'],
 })
 export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
   private readonly logger = new Logger(ChatGateway.name);

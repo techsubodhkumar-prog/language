@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
@@ -449,9 +450,12 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
     final filteredInterests = interests.where((item) {
       final name = (item['name'] as String?)?.toLowerCase() ?? '';
       final cat = (item['category'] as String?) ?? '';
-      if (_selectedCategory != null && cat != _selectedCategory) return false;
-      if (_search.isNotEmpty && !name.contains(_search.toLowerCase()))
+      if (_selectedCategory != null && cat != _selectedCategory) {
         return false;
+      }
+      if (_search.isNotEmpty && !name.contains(_search.toLowerCase())) {
+        return false;
+      }
       return true;
     }).toList();
 
@@ -808,31 +812,33 @@ class _RetryScreenState extends State<_RetryScreen> {
                 border: OutlineInputBorder(),
               ),
             ),
-            const SizedBox(height: 12),
-            Wrap(
-              spacing: 8,
-              runSpacing: 4,
-              children: [
-                ActionChip(
-                  avatar: const Icon(Icons.wifi, size: 16),
-                  label: const Text('Wi-Fi: 10.0.19.45'),
-                  onPressed: () =>
-                      controller.text = 'http://10.0.19.45:3000/api/v1',
-                ),
-                ActionChip(
-                  avatar: const Icon(Icons.usb, size: 16),
-                  label: const Text('localhost:3000 (USB)'),
-                  onPressed: () =>
-                      controller.text = 'http://localhost:3000/api/v1',
-                ),
-                ActionChip(
-                  avatar: const Icon(Icons.phone_android, size: 16),
-                  label: const Text('10.0.2.2 (Emulator)'),
-                  onPressed: () =>
-                      controller.text = 'http://10.0.2.2:3000/api/v1',
-                ),
-              ],
-            ),
+            if (!kReleaseMode) ...[
+              const SizedBox(height: 12),
+              Wrap(
+                spacing: 8,
+                runSpacing: 4,
+                children: [
+                  ActionChip(
+                    avatar: const Icon(Icons.wifi, size: 16),
+                    label: const Text('Wi-Fi: 10.0.19.45'),
+                    onPressed: () =>
+                        controller.text = 'http://10.0.19.45:3000/api/v1',
+                  ),
+                  ActionChip(
+                    avatar: const Icon(Icons.usb, size: 16),
+                    label: const Text('localhost:3000 (USB)'),
+                    onPressed: () =>
+                        controller.text = 'http://localhost:3000/api/v1',
+                  ),
+                  ActionChip(
+                    avatar: const Icon(Icons.phone_android, size: 16),
+                    label: const Text('10.0.2.2 (Emulator)'),
+                    onPressed: () =>
+                        controller.text = 'http://10.0.2.2:3000/api/v1',
+                  ),
+                ],
+              ),
+            ],
           ],
         ),
         actions: [
@@ -844,6 +850,15 @@ class _RetryScreenState extends State<_RetryScreen> {
             onPressed: () {
               final newUrl = controller.text.trim();
               if (newUrl.isNotEmpty && widget.onUpdateUrl != null) {
+                if (kReleaseMode && !newUrl.startsWith('https://')) {
+                  ScaffoldMessenger.of(ctx).showSnackBar(
+                    const SnackBar(
+                      content:
+                          Text('Release builds require a secure HTTPS URL.'),
+                    ),
+                  );
+                  return;
+                }
                 Navigator.pop(ctx);
                 widget.onUpdateUrl!(newUrl);
               }
@@ -898,7 +913,8 @@ class _RetryScreenState extends State<_RetryScreen> {
                   style: const TextStyle(fontSize: 12, fontFamily: 'monospace'),
                 ),
               ),
-              if (widget.currentUrl != null &&
+              if (!kReleaseMode &&
+                  widget.currentUrl != null &&
                   !widget.currentUrl!.contains('10.0.19.45') &&
                   widget.onUpdateUrl != null) ...[
                 const SizedBox(height: 10),

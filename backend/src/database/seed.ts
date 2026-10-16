@@ -1,5 +1,6 @@
 import pg from 'pg';
 import dotenv from 'dotenv';
+import { getDatabaseSslConfig } from './database-ssl.util.js';
 
 dotenv.config();
 
@@ -230,7 +231,15 @@ async function runSeed() {
     process.exit(1);
   }
 
-  const pool = new Pool({ connectionString: databaseUrl });
+  const sslConfig = getDatabaseSslConfig(databaseUrl);
+  if (sslConfig && !sslConfig.rejectUnauthorized) {
+    console.warn('SECURITY WARNING: Running database seed with TLS verification disabled.');
+  }
+
+  const pool = new Pool({
+    connectionString: databaseUrl,
+    ...(sslConfig ? { ssl: sslConfig } : {}),
+  });
   const client = await pool.connect();
 
   try {

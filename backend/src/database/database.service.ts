@@ -1,6 +1,7 @@
 import { Injectable, Logger, OnModuleDestroy } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import pg, { type PoolClient, type QueryResult, type QueryResultRow } from 'pg';
+import { getDatabaseSslConfig } from './database-ssl.util.js';
 
 const { Pool } = pg;
 
@@ -13,11 +14,33 @@ export class DatabaseService implements OnModuleDestroy {
   constructor(private readonly configService: ConfigService) {
     const databaseUrl = this.configService.get<string>('DATABASE_URL');
     if (databaseUrl && !databaseUrl.includes('placeholder')) {
+      const nodeEnv = this.configService.get<string>('NODE_ENV', 'development');
+      const rejectUnauthorized = this.configService.get<string>(
+        'DATABASE_SSL_REJECT_UNAUTHORIZED',
+      );
+      const caCert =
+        this.configService.get<string>('DATABASE_CA_CERT') ||
+        this.configService.get<string>('PGSSLROOTCERT');
+
+      const sslConfig = getDatabaseSslConfig(
+        databaseUrl,
+        nodeEnv,
+        rejectUnauthorized,
+        caCert,
+      );
+
+      if (sslConfig && !sslConfig.rejectUnauthorized) {
+        this.logger.warn(
+          'SECURITY WARNING: PostgreSQL SSL certificate verification is disabled (DATABASE_SSL_REJECT_UNAUTHORIZED=false).',
+        );
+      }
+
       this.pool = new Pool({
         connectionString: databaseUrl,
         max: 10,
         idleTimeoutMillis: 30000,
         connectionTimeoutMillis: 5000,
+        ...(sslConfig ? { ssl: sslConfig } : {}),
       });
 
       this.pool.on('error', (err) => {

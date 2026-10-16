@@ -38,9 +38,23 @@ Future<void> main() async {
   const storage = FlutterSecureStorage();
   final savedUrl = await storage.read(key: 'activity_discovery_api_base_url');
   final resolvedUrl = resolveApiBaseUrl();
-  final apiBaseUrl = (savedUrl != null && savedUrl.isNotEmpty)
-      ? savedUrl
-      : resolvedUrl;
+
+  final String apiBaseUrl;
+  if (kReleaseMode) {
+    // Release builds require an explicit HTTPS production URL and cannot silently fall back to localhost or dev IPs
+    if (savedUrl != null && savedUrl.startsWith('https://')) {
+      apiBaseUrl = savedUrl;
+    } else if (resolvedUrl.startsWith('https://')) {
+      apiBaseUrl = resolvedUrl;
+    } else {
+      apiBaseUrl = '';
+    }
+  } else {
+    apiBaseUrl = (savedUrl != null && savedUrl.isNotEmpty)
+        ? savedUrl
+        : resolvedUrl;
+  }
+
   final configured =
       _supabaseUrl.startsWith('https://') &&
       _supabaseAnonKey.isNotEmpty &&
@@ -118,7 +132,7 @@ class _ConfigurationScreen extends StatelessWidget {
             ),
             SizedBox(height: 12),
             Text(
-              'Set SUPABASE_URL and SUPABASE_ANON_KEY with --dart-define to connect. The anon key is safe for client use; never use a service-role key here.',
+              'Set SUPABASE_URL and SUPABASE_ANON_KEY (and API_BASE_URL for release builds) with --dart-define to connect. The anon key is safe for client use; never use a service-role key here.',
               textAlign: TextAlign.center,
             ),
           ],
