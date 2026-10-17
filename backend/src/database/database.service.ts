@@ -54,16 +54,43 @@ export class DatabaseService implements OnModuleDestroy {
   }
 
   async isHealthy(): Promise<boolean> {
-    if (!this.pool) return false;
+    if (!this.pool) {
+      this.logger.error(
+        'Database readiness probe failed: connection pool is not initialized (DATABASE_URL may be missing, invalid, or contains placeholder).',
+      );
+      this.isConnected = false;
+      return false;
+    }
     try {
       const res = await this.pool.query('SELECT 1 AS alive');
       this.isConnected = res.rows.length > 0;
       return this.isConnected;
-    } catch {
+    } catch (err: unknown) {
       this.isConnected = false;
+      const error = err as { code?: string; message?: string; name?: string };
+      const errorCode = error?.code || error?.name || 'UNKNOWN_DB_ERROR';
+      const sanitizedMessage = this.sanitizeErrorMessage(
+        error?.message || 'Database diagnostic SELECT 1 query failed',
+      );
+      this.logger.error(
+        `Database readiness probe failed [${errorCode}]: ${sanitizedMessage}`,
+      );
       return false;
     }
   }
+
+  /**
+   * Sanitizes database error messages to prevent accidental leakage of
+   * passwords, connection strings, or authorization secrets into application logs.
+   */
+  sanitizeErrorMessage(message: string): string {
+    return message
+      .replace(/(postgresql|postgres):\/\/[^\s@]+@/gi, '$1://***:***@')
+      .replace(/(password|token|secret)\s*[:=]\s*[^\s,;]+/gi, '$1=***')
+      .replace(/\r?\n|\r/g, ' ')
+      .trim();
+  }
+
 
   getPool(): pg.Pool | null {
     return this.pool;

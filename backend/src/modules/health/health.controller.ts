@@ -2,6 +2,7 @@ import {
   Controller,
   Get,
   HttpStatus,
+  Logger,
   ServiceUnavailableException,
 } from '@nestjs/common';
 import { DatabaseService } from '../../database/database.service.js';
@@ -22,6 +23,8 @@ export interface ReadinessResponse {
 
 @Controller('health')
 export class HealthController {
+  private readonly logger = new Logger(HealthController.name);
+
   constructor(private readonly databaseService: DatabaseService) {}
 
   @Get()
@@ -39,10 +42,14 @@ export class HealthController {
   async getReadiness(): Promise<ReadinessResponse> {
     const isDbConnected = await this.databaseService.isHealthy();
     if (!isDbConnected) {
+      this.logger.warn(
+        'Readiness probe failed: database connection is disconnected or unreachable. Returning 503 Service Unavailable.',
+      );
       throw new ServiceUnavailableException({
         statusCode: HttpStatus.SERVICE_UNAVAILABLE,
         status: 'degraded',
         database: 'disconnected',
+        message: 'Database connection is disconnected or unreachable',
         timestamp: new Date().toISOString(),
       });
     }
@@ -54,3 +61,4 @@ export class HealthController {
     };
   }
 }
+
